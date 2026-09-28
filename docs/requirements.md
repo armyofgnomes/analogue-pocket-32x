@@ -17,9 +17,9 @@ Update the status column in the same commit that completes a requirement.
 
 | Milestone | Goal | Exit criteria |
 |---|---|---|
-| **M0: Tooling & feasibility** | Know whether it fits, and have a repeatable build | REQ-TOOL-01..04 done. REQ-ARCH-03 fit report reviewed. Go/no-go on REQ-ARCH-01 |
-| **M1: Pipeline proven on hardware** | Build from source → Pocket, end to end | Modified template (e.g. solid color of our choosing) built by us, loads on a Pocket |
-| **M2: Genesis on Pocket** | The Genesis half of the system runs, from the S32X codebase with 32X disabled | Several Genesis games boot and play with sound and input |
+| **M0: Tooling & feasibility** (all but REQ-TOOL-04) | Know whether it fits, and have a repeatable build | REQ-TOOL-01..04 done. REQ-ARCH-03 fit report reviewed. Go/no-go on REQ-ARCH-01 |
+| **M1: Pipeline proven on hardware** ✅ 2026-09-28 | Build from source → Pocket, end to end | Modified template (e.g. solid color of our choosing) built by us, loads on a Pocket |
+| **M2: Genesis on Pocket** ✅ 2026-09-28 | The Genesis half of the system runs, from the S32X codebase with 32X disabled | Several Genesis games boot and play with sound and input |
 | **M3: 32X memory subsystem** | Framebuffers, 32X SDRAM and BIOS live in Pocket memory | Memory test patterns pass on HW. BIOS present (embedded is fine) |
 | **M4: 32X boots** | Both SH-2s run BIOS code | 32X BIOS/security screen shown. A simple 32X homebrew/test ROM runs |
 | **M5: Games playable** | Commercial 32X library playable | Test-matrix games (REQ-QA-03) boot and play with correct video/audio |
@@ -65,10 +65,10 @@ Update the status column in the same commit that completes a requirement.
 |---|---|---|---|---|
 | REQ-APF-01 | P0 | `core.json`: real metadata (author, shortname, description, version, URL), `platform_ids` set to our platform, correct framework flags | HW | WIP |
 | REQ-APF-02 | P0 | Platform definition: `dist/platforms/<id>.json` (category "Console", name "32X", manufacturer Sega, year 1994) and platform image `.bin`. Replace the `ex_platform` placeholders | HW | WIP |
-| REQ-APF-03 | P0 | `data.json` cartridge ROM slot (`.32x`, also `.bin`/`.md`/`.gen` for plain Genesis) | HW | WIP |
+| REQ-APF-03 | P0 | `data.json` cartridge ROM slot (`.32x`, also `.bin`/`.md`/`.gen` for plain Genesis) | HW | DONE |
 | REQ-APF-03a | P0 | BIOS available to the core. **Phase 1 (acceptable end state for personal use):** embedded at build time from gitignored `bios/` files. Build fails clearly if they're missing | FIT | TODO |
 | REQ-APF-03b | P2 | BIOS loaded at runtime from data slots instead (68K, master SH-2, slave SH-2 in `Assets/<platform>/common/`), with a visible error if missing. Needed only if the core is ever shared publicly | HW | TODO |
-| REQ-APF-04 | P0 | Bridge-driven loading: data-slot writes land in the correct external memory / BRAM, with core held in reset until loading completes (`dataslot_allcomplete`) | HW | WIP |
+| REQ-APF-04 | P0 | Bridge-driven loading: data-slot writes land in the correct external memory / BRAM, with core held in reset until loading completes (`dataslot_allcomplete`) | HW | DONE |
 | REQ-APF-05 | P0 | Replace template `icon.bin` and `info.txt` with project-specific content | HW | TODO |
 | REQ-APF-06 | P1 | `interact.json` settings: region (auto/US/EU/JP), 6-button pad toggle, audio options (FM chip variant, lowpass), video options (border, composite blending), reset. Values wired through the bridge | HW | TODO |
 | REQ-APF-07 | P1 | Optional Genesis TMSS BIOS slot (off by default) | HW | TODO |
@@ -78,7 +78,7 @@ Update the status column in the same commit that completes a requirement.
 
 | ID | Pri | Requirement | Verify | Status |
 |---|---|---|---|---|
-| REQ-CLK-01 | P0 | New PLL(s) replacing the template's `mf_pllbase` per REQ-ARCH-05. Lock is used in reset | FIT | WIP |
+| REQ-CLK-01 | P0 | New PLL(s) replacing the template's `mf_pllbase` per REQ-ARCH-05. Lock is used in reset | FIT | DONE |
 | REQ-CLK-02 | P0 | Clock-enable generator for 68K (/7), Z80 (/15), SH-2 (×3/7), VDP and FM, matching MiSTer's `CEGen` | SIM | TODO |
 | REQ-CLK-03 | P0 | All bridge ↔ core crossings synchronized. Timing analysis shows no unconstrained paths. SDC updated | FIT | TODO |
 | REQ-CLK-04 | P0 | Positive setup/hold slack on all corners in the final build | FIT | TODO |
@@ -91,16 +91,16 @@ Update the status column in the same commit that completes a requirement.
 | REQ-MEM-02 | P0 | Framebuffer storage in external memory (SRAM proposed) supporting 32X VDP scanout, SH-2 reads/writes, and VDP auto-fill, with FB swap semantics | HW | TODO |
 | REQ-MEM-03 | P0 | 32X SDRAM (256 KB) in external memory with wait-state behavior close to real hardware | HW | TODO |
 | REQ-MEM-04 | P0 | BIOS images in BRAM (initialized at build time, or loaded from data slots per REQ-APF-03b). Correct mapping at SH-2 0x00000000 and 68K vector area | SIM | TODO |
-| REQ-MEM-05 | P0 | Genesis internal RAMs (68K 64 KB, Z80 8 KB, VRAM 64 KB, CRAM, VSRAM) in BRAM | FIT | TODO |
+| REQ-MEM-05 | P0 | Genesis internal RAMs (68K 64 KB, Z80 8 KB, VRAM 64 KB, CRAM, VSRAM) in BRAM | FIT | DONE |
 | REQ-MEM-06 | P1 | Memory self-test mode (debug build) that exercises each external RAM and reports pass/fail on screen | HW | TODO |
 
 ## 7. Genesis base system (GEN), milestone M2
 
 | ID | Pri | Requirement | Verify | Status |
 |---|---|---|---|---|
-| REQ-GEN-01 | P0 | 68000 (fx68k), Z80 (T80), VDP, YM2612 (jt12), PSG (jt89) integrated from the chosen base | HW | WIP |
-| REQ-GEN-02 | P0 | Plain Genesis/Mega Drive ROMs boot and play (non-32X carts pass through when 32X is disabled) | HW | TODO |
-| REQ-GEN-03 | P0 | Region/version register from header auto-detect + override | HW | TODO |
+| REQ-GEN-01 | P0 | 68000 (fx68k), Z80 (T80), VDP, YM2612 (jt12), PSG (jt89) integrated from the chosen base | HW | DONE |
+| REQ-GEN-02 | P0 | Plain Genesis/Mega Drive ROMs boot and play (non-32X carts pass through when 32X is disabled) | HW | DONE |
+| REQ-GEN-03 | P0 | Region/version register from header auto-detect + override | HW | WIP |
 | REQ-GEN-04 | P1 | Cart mappers needed by 32X carts and common Genesis carts (SSF2 banking at minimum). EEPROM carts as in base core | HW | TODO |
 
 ## 8. 32X hardware (S32X), milestones M3–M5
@@ -121,9 +121,9 @@ Update the status column in the same commit that completes a requirement.
 
 | ID | Pri | Requirement | Verify | Status |
 |---|---|---|---|---|
-| REQ-VID-01 | P0 | `video.json` scaler modes for H40 (320) and H32 (256) × 224, plus 240-line variants; runtime slot selection | HW | TODO |
-| REQ-VID-02 | P0 | Stable video timing to the Pocket scaler with no tearing/rolling on H32↔H40 or interlace changes | HW | TODO |
-| REQ-VID-03 | P0 | Correct color: Genesis 9-bit → 24-bit LUT, 32X 15-bit → 24-bit | HW | TODO |
+| REQ-VID-01 | P0 | `video.json` scaler modes for H40 (320) and H32 (256) × 224, plus 240-line variants; runtime slot selection | HW | WIP |
+| REQ-VID-02 | P0 | Stable video timing to the Pocket scaler with no tearing/rolling on H32↔H40 or interlace changes | HW | WIP |
+| REQ-VID-03 | P0 | Correct color: Genesis 9-bit → 24-bit LUT, 32X 15-bit → 24-bit | HW | WIP |
 | REQ-VID-04 | P1 | Interlace mode 2 (e.g. Sonic 2 2P) handled sensibly | HW | TODO |
 | REQ-VID-05 | P1 | Dock output verified (HDMI via Analogue Dock), correct aspect ratio | HW | TODO |
 | REQ-VID-06 | P2 | Optional border/overscan and composite-blend options | HW | TODO |
@@ -132,15 +132,15 @@ Update the status column in the same commit that completes a requirement.
 
 | ID | Pri | Requirement | Verify | Status |
 |---|---|---|---|---|
-| REQ-AUD-01 | P0 | YM2612 + PSG + PWM mixed with sane relative levels and no clipping | HW | TODO |
-| REQ-AUD-02 | P0 | Resampled/delivered as 48 kHz I2S to the Pocket (`audio_mclk` 12.288 MHz) without pops, drift or underrun | HW | TODO |
+| REQ-AUD-01 | P0 | YM2612 + PSG + PWM mixed with sane relative levels and no clipping | HW | WIP |
+| REQ-AUD-02 | P0 | Resampled/delivered as 48 kHz I2S to the Pocket (`audio_mclk` 12.288 MHz) without pops, drift or underrun | HW | WIP |
 | REQ-AUD-03 | P1 | Low-pass filter option (Model 1/Model 2 style) | HW | TODO |
 
 ## 11. Input (INP)
 
 | ID | Pri | Requirement | Verify | Status |
 |---|---|---|---|---|
-| REQ-INP-01 | P0 | Pocket controls → Genesis 3-button pad (A/B/C/Start) via `input.json` mapping | HW | TODO |
+| REQ-INP-01 | P0 | Pocket controls → Genesis 3-button pad (A/B/C/Start) via `input.json` mapping | HW | DONE |
 | REQ-INP-02 | P0 | 6-button pad (X/Y/Z/Mode) with correct TH-toggle protocol. Toggle for games that break with 6-button | HW | TODO |
 | REQ-INP-03 | P1 | Player 2 via Dock controllers | HW | TODO |
 
@@ -155,7 +155,7 @@ Update the status column in the same commit that completes a requirement.
 
 | ID | Pri | Requirement | Verify | Status |
 |---|---|---|---|---|
-| REQ-QA-01 | P0 | Hardware test protocol followed per `hardware-testing.md`; results logged in `docs/test-log.md` | DOC | TODO |
+| REQ-QA-01 | P0 | Hardware test protocol followed per `hardware-testing.md`; results logged in `docs/test-log.md` | DOC | WIP |
 | REQ-QA-02 | P0 | Every release build tested on **at least two different Pockets** (catches marginal timing) | HW | TODO |
 | REQ-QA-03 | P0 | Game test matrix covering the 32X library, especially titles known to stress SH-2 timing, dual-CPU sync, PWM and all VDP modes (e.g. Virtua Racing Deluxe, Star Wars Arcade, Doom, Knuckles' Chaotix, Kolibri, Virtua Fighter, Metal Head, Tempo, Mortal Kombat II, Spider-Man: Web of Fire, Shadow Squadron, After Burner Complete, Space Harrier, NBA Jam TE, FIFA 96). Use the MiSTer "Game list.xlsx" for known-issue cross-reference | HW | TODO |
 | REQ-QA-04 | P1 | Genesis regression set (a handful of Genesis games) still passes after 32X work | HW | TODO |
