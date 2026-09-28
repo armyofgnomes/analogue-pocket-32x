@@ -1,4 +1,5 @@
-# REQ-ARCH-03 fit experiment. Built by run.sh; upstream sources live in build/upstream (gitignored).
+# REQ-ARCH-03/04 fit experiment. Template: run.sh substitutes @UPSTREAM@ and @HERE@ and appends
+# variant settings, building in build/fit/<variant>/
 set_global_assignment -name FAMILY "Cyclone V"
 set_global_assignment -name DEVICE 5CEBA4F23C8
 set_global_assignment -name TOP_LEVEL_ENTITY s32x_fit_top
@@ -33,21 +34,21 @@ set_global_assignment -name SEED 1
 
 # Upstream S32X_MiSTer system logic (paths from files.qip, minus sys/, SDRAM/DDR controllers,
 # cofi and the emu top level)
-set_global_assignment -name QIP_FILE ../../build/upstream/S32X_MiSTer/rtl/FX68K/fx68k.qip
-set_global_assignment -name QIP_FILE ../../build/upstream/S32X_MiSTer/rtl/GEN/GEN.qip
-set_global_assignment -name QIP_FILE ../../build/upstream/S32X_MiSTer/rtl/CART/cart.qip
-set_global_assignment -name QIP_FILE ../../build/upstream/S32X_MiSTer/rtl/SH/SH7604/SH7604.qip
-set_global_assignment -name VERILOG_FILE ../../build/upstream/S32X_MiSTer/rtl/SH_mem.v
-set_global_assignment -name VERILOG_FILE ../../build/upstream/S32X_MiSTer/rtl/vdp_mem.v
-set_global_assignment -name QIP_FILE ../../build/upstream/S32X_MiSTer/rtl/32X/32X.qip
-set_global_assignment -name SYSTEMVERILOG_FILE ../../build/upstream/S32X_MiSTer/rtl/32X_mem.sv
-set_global_assignment -name VHDL_FILE ../../build/upstream/S32X_MiSTer/rtl/bram.vhd
-set_global_assignment -name VHDL_FILE ../../build/upstream/S32X_MiSTer/rtl/mlab.vhd
-set_global_assignment -name VHDL_FILE ../../build/upstream/S32X_MiSTer/rtl/CEGen.vhd
-set_global_assignment -name VHDL_FILE ../../build/upstream/S32X_MiSTer/rtl/snd_mix.vhd
-set_global_assignment -name SYSTEMVERILOG_FILE ../../build/upstream/S32X_MiSTer/rtl/cheatcodes.sv
-set_global_assignment -name SYSTEMVERILOG_FILE s32x_fit_top.sv
-set_global_assignment -name SDC_FILE s32x_fit.sdc
+set_global_assignment -name QIP_FILE @UPSTREAM@/rtl/FX68K/fx68k.qip
+set_global_assignment -name QIP_FILE @UPSTREAM@/rtl/GEN/GEN.qip
+set_global_assignment -name QIP_FILE @UPSTREAM@/rtl/CART/cart.qip
+set_global_assignment -name QIP_FILE @UPSTREAM@/rtl/SH/SH7604/SH7604.qip
+set_global_assignment -name VERILOG_FILE @UPSTREAM@/rtl/SH_mem.v
+set_global_assignment -name VERILOG_FILE @UPSTREAM@/rtl/vdp_mem.v
+set_global_assignment -name QIP_FILE @UPSTREAM@/rtl/32X/32X.qip
+set_global_assignment -name SYSTEMVERILOG_FILE @UPSTREAM@/rtl/32X_mem.sv
+set_global_assignment -name VHDL_FILE @UPSTREAM@/rtl/bram.vhd
+set_global_assignment -name VHDL_FILE @UPSTREAM@/rtl/mlab.vhd
+set_global_assignment -name VHDL_FILE @UPSTREAM@/rtl/CEGen.vhd
+set_global_assignment -name VHDL_FILE @UPSTREAM@/rtl/snd_mix.vhd
+set_global_assignment -name SYSTEMVERILOG_FILE @UPSTREAM@/rtl/cheatcodes.sv
+set_global_assignment -name SYSTEMVERILOG_FILE @HERE@/s32x_fit_top.sv
+set_global_assignment -name SDC_FILE @HERE@/s32x_fit.sdc
 
 # Every port except the clock is a virtual pin: memory buses count as logic, not I/O.
 set_instance_assignment -name VIRTUAL_PIN ON -to reset

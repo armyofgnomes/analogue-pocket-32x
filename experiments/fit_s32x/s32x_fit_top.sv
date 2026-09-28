@@ -113,6 +113,15 @@ wire        GEN_MEM_BUSY;
 
 wire [15:0] S32X_SL, S32X_SR;
 
+`ifdef FIT_AUDIO_LITE
+// Variant audio_lite: output and FM low-pass filters bypassed (mode 2'b11), no hi-fi PCM.
+wire [1:0] lpf_mode_g    = 2'b11;
+wire       en_hifi_pcm_g = 1'b0;
+`else
+wire [1:0] lpf_mode_g    = LPF_MODE;
+wire       en_hifi_pcm_g = EN_HIFI_PCM;
+`endif
+
 gen gen
 (
 	.RESET_N(~reset),
@@ -185,9 +194,9 @@ gen gen
 	.EN_GEN_FM(EN_GEN_FM),
 	.EN_GEN_PSG(EN_GEN_PSG),
 	.EN_32X_PWM(EN_32X_PWM),
-	.EN_HIFI_PCM(EN_HIFI_PCM),
+	.EN_HIFI_PCM(en_hifi_pcm_g),
 	.LADDER(LADDER),
-	.LPF_MODE(LPF_MODE),
+	.LPF_MODE(lpf_mode_g),
 	.FMBUSY_QUIRK(FMBUSY_QUIRK),
 
 	.EXT_SL(S32X_SL),

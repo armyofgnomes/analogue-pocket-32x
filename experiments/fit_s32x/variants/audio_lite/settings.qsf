@@ -1,0 +1,2 @@
+# Genesis audio low-pass filters bypassed and hi-fi PCM interpolation off (see s32x_fit_top.sv).
+set_global_assignment -name VERILOG_MACRO "FIT_AUDIO_LITE=1"

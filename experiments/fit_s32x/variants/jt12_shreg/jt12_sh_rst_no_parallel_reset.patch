@@ -1,0 +1,24 @@
+diff --git a/rtl/GEN/jt12/jt12_sh_rst.v b/rtl/GEN/jt12/jt12_sh_rst.v
+index 47e44c1..99c672f 100644
+--- a/rtl/GEN/jt12/jt12_sh_rst.v
++++ b/rtl/GEN/jt12/jt12_sh_rst.v
+@@ -41,13 +41,14 @@ initial
+ 	end
+ endgenerate
+ 
++// Fit experiment (jt12_shreg): no parallel reset, so Quartus can map the chain to RAM.
++// While rst is held, rstval is shifted in every clock, clearing all stages within
++// `stages` cycles (the Z80/YM reset pulse from 68K code is far longer than 24 MCLKs).
+ generate
+ 	for (i=0; i < width; i=i+1) begin: bit_shifter
+-		always @(posedge clk) 
+-			if( rst ) begin
+-				bits[i] <= {stages{rstval}};
+-			end else if(clk_en) begin
+-				bits[i] <= {bits[i][stages-2:0], din[i]};
++		always @(posedge clk)
++			if( rst || clk_en ) begin
++				bits[i] <= {bits[i][stages-2:0], rst ? rstval : din[i]};
+ 			end
+ 		assign drop[i] = bits[i][stages-1];
+ 	end

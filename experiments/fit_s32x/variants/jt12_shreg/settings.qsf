@@ -1,0 +1,2 @@
+# jt12 shift registers without parallel reset, so they can be inferred as RAM (altshift_taps).
+set_global_assignment -name AUTO_SHIFT_REGISTER_RECOGNITION ALWAYS

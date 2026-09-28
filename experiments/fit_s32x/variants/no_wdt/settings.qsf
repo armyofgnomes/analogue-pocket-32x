@@ -1,0 +1,3 @@
+# SH-2 watchdog timer disabled. Accuracy risk: a game could use it as an interval timer.
+set_parameter -name WDT_DISABLE 1 -to "S32X:S32X|SH7604:MSH"
+set_parameter -name WDT_DISABLE 1 -to "S32X:S32X|SH7604:SSH"

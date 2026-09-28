@@ -1,0 +1,4 @@
+# SH-2 User Break Controller is a debugger aid; no game uses it. (bram.vhd patch drops the
+# In-System Memory Content Editor hub.)
+set_parameter -name UBC_DISABLE 1 -to "S32X:S32X|SH7604:MSH"
+set_parameter -name UBC_DISABLE 1 -to "S32X:S32X|SH7604:SSH"

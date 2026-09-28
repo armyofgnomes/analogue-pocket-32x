@@ -1,0 +1,13 @@
+diff --git a/rtl/bram.vhd b/rtl/bram.vhd
+index b862f1d..32ac470 100644
+--- a/rtl/bram.vhd
++++ b/rtl/bram.vhd
+@@ -76,7 +76,7 @@ BEGIN
+ 		clock_enable_input_a => "BYPASS",
+ 		clock_enable_output_a => "BYPASS",
+ 		intended_device_family => "Cyclone V",
+-		lpm_hint => "ENABLE_RUNTIME_MOD=YES,INSTANCE_NAME="&mem_name,
++		lpm_hint => "ENABLE_RUNTIME_MOD=NO,INSTANCE_NAME="&mem_name,
+ 		lpm_type => "altsyncram",
+ 		numwords_a => numwords,
+ 		operation_mode => "SINGLE_PORT",

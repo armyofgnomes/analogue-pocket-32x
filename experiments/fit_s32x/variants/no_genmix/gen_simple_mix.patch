@@ -1,0 +1,33 @@
+diff --git a/rtl/GEN/gen.sv b/rtl/GEN/gen.sv
+index cff0f2c..0572e78 100644
+--- a/rtl/GEN/gen.sv
++++ b/rtl/GEN/gen.sv
+@@ -739,18 +739,16 @@ wire signed [15:0] fm_select_r = ((LPF_MODE == 2'b01) ? FM_LPF_right : fm_adjust
+ 
+ wire signed [10:0] psg_adjust = PSG_SND - (PSG_SND >>> 5);
+ 
+-jt12_genmix genmix
+-(
+-	.rst(reset),
+-	.clk(MCLK),
+-	.fm_left(fm_select_l),
+-	.fm_right(fm_select_r),
+-	.psg_snd(psg_adjust),
+-	.fm_en(EN_GEN_FM),
+-	.psg_en(EN_GEN_PSG),
+-	.snd_left(SL),
+-	.snd_right(SR)
+-);
++// Fit experiment (no_genmix): plain registered sum at the same levels as jt12_fm_uprate,
++// without jt12_genmix's PSG/FM resampling.
++reg signed [15:0] SL_r, SR_r;
++wire signed [11:0] psg_mix = EN_GEN_PSG ? {psg_adjust[10], psg_adjust} : 12'sd0;
++always @(posedge MCLK) begin
++	SL_r <= (EN_GEN_FM ? fm_select_l : 16'sd0) + {psg_mix[11], psg_mix, 3'b0};
++	SR_r <= (EN_GEN_FM ? fm_select_r : 16'sd0) + {psg_mix[11], psg_mix, 3'b0};
++end
++assign SL = SL_r;
++assign SR = SR_r;
+ 
+ SND_MIX mix
+ (
