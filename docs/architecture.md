@@ -112,6 +112,50 @@ resource report. If it doesn't fit, options include:
 - As a last resort, time-multiplex a single SH-2 datapath between master and slave. This is
   high risk for accuracy.
 
+### Fit experiment results (REQ-ARCH-03, 2026-09-28)
+
+Setup: `experiments/fit_s32x/` (`run.sh` fetches S32X_MiSTer at `b438679` and compiles).
+The wrapper instantiates `gen` + `S32X` + `CART` as wired in upstream `S32X.sv`, with every
+memory bus (cart ROM/SRAM, 32X SDRAM, both framebuffers) on virtual pins, so the
+framebuffers aren't in BRAM. Mouse, lightgun, multitap pads 3–5, Game Genie and VDP debug
+layers are tied off. Upstream's optimization settings, Quartus 25.1std, 5CEBA4F23C8.
+
+| Resource | Used | Pocket total | % |
+|---|---|---|---|
+| ALMs needed | 17,377 | 18,480 | **94 %** (fitter reports packing difficulty "High") |
+| Registers | 19,410 | | |
+| Block RAM | 1,278,832 bits / 171 M10K | 3,153,920 bits / 308 | 41 % / 56 % |
+| DSP | 23 | 66 | 35 % |
+| Timing @ 53.693 MHz | Met in all corners. Fmax 57.9 MHz, worst setup slack +1.000 ns (slow 0 °C), worst hold +0.101 ns | | |
+
+ALMs by block:
+
+| Block | ALMs | Notes |
+|---|---|---|
+| SH-2 master (`SH7604:MSH`) | 4,611 | core 1,739 · cache 681 · DIVU 458 · MULT 367 · DMAC 365 · BSC 312 · INTC 145 · UBC 122 · SCI 109 · FRT 91 · WDT 46 |
+| SH-2 slave (`SH7604:SSH`) | 4,658 | same breakdown |
+| 32X interface (`S32X_IF`) | 634 | |
+| 32X VDP | 259 | framebuffers external |
+| **32X total** | **10,187** | |
+| 68000 (`fx68k`) | 1,881 | |
+| YM2612 (`jt12`) | 1,221 | |
+| Genesis VDP | 1,209 | |
+| Z80 (`T80`) | 954 | |
+| Audio mixer/upsampler (`jt12_genmix`) + FM low-pass filters | 675 | |
+| Bus arbiter, I/O, PSG, other | ~744 | |
+| **Genesis total** | **6,684** | |
+| Cart mapper | 222 | |
+| Top-level glue + JTAG hub | ~283 | JTAG hub (58) comes from `ENABLE_RUNTIME_MOD` in upstream `bram.vhd`, a MiSTer debug aid |
+
+**Verdict:** the system logic alone fits, but it doesn't leave room for the Pocket side. The
+APF template is ~400 ALMs, and memory controllers (SDRAM multi-port, SRAM framebuffer, bridge
+loader), video/audio output and saves are estimated at another 1,500–2,500 ALMs. Total ≈
+19,300–20,300, i.e. 1,000–2,000 over the device. To reach ~10 % headroom (≤ ~16,600 ALMs
+total), the system logic has to shrink by roughly **3,000 ALMs (~17 %)**. REQ-ARCH-04 is
+therefore required. Block RAM (41 %) and DSP (35 %) have room, so converting logic into
+M10K/MLAB/DSP is a lever. Timing margin is thin (+1 ns), so area-first synthesis settings
+may cost timing.
+
 ## 5. Clocks
 
 - MiSTer uses `clk_sys` = 53.693175 MHz (MCLK) with clock enables for every CPU, and
