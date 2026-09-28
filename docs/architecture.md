@@ -147,14 +147,54 @@ ALMs by block:
 | Cart mapper | 222 | |
 | Top-level glue + JTAG hub | ~283 | JTAG hub (58) comes from `ENABLE_RUNTIME_MOD` in upstream `bram.vhd`, a MiSTer debug aid |
 
-**Verdict:** the system logic alone fits, but it doesn't leave room for the Pocket side. The
-APF template is ~400 ALMs, and memory controllers (SDRAM multi-port, SRAM framebuffer, bridge
-loader), video/audio output and saves are estimated at another 1,500–2,500 ALMs. Total ≈
-19,300–20,300, i.e. 1,000–2,000 over the device. To reach ~10 % headroom (≤ ~16,600 ALMs
-total), the system logic has to shrink by roughly **3,000 ALMs (~17 %)**. REQ-ARCH-04 is
-therefore required. Block RAM (41 %) and DSP (35 %) have room, so converting logic into
-M10K/MLAB/DSP is a lever. Timing margin is thin (+1 ns), so area-first synthesis settings
-may cost timing.
+**Verdict:** the system logic alone fits, but at 94 % it leaves no room for the Pocket side, so
+REQ-ARCH-04 is required. Block RAM (41 %) includes 68K RAM, Z80 RAM and VRAM, which are all
+on-chip. Cart save RAM (512 Kbit) could also go on-chip (→ ~58 %).
+
+**Pocket-side cost, measured:** openFPGA-Genesis (`0032b2c`) compiled with 25.1std uses 12,375
+ALMs in total, of which its Genesis `system` is 11,088. That makes its Pocket plumbing ~1,290
+ALMs: bridge command handler 179, ROM/save loaders + unloader 302, lightgun 192, controller
+I/O + bridge peripheral 187, I2S 71, single-port SDRAM 56, JTAG hub/cofi/glue ~300. Our core
+needs a multi-port SDRAM controller and an SRAM framebuffer controller and can drop the
+lightgun, so the planning figure is **~1,300–1,700 ALMs**.
+
+### Reduction experiments (REQ-ARCH-04, 2026-09-28)
+
+Each variant lives in `experiments/fit_s32x/variants/` and is measured against the baseline
+(which reproduces exactly: 17,377). Run with e.g.
+`experiments/fit_s32x/run.sh area_aggressive+no_debug`.
+
+| Variant | What it does | ALMs | Δ | Setup slack | Decision |
+|---|---|---|---|---|---|
+| `area_aggressive` | `OPTIMIZATION_MODE "AGGRESSIVE AREA"`, technique AREA, no register duplication | 16,696 | −681 | +1.405 | **Keep** (timing *improved*) |
+| `no_genmix` | Replace `jt12_genmix` PSG/FM resampler with a plain registered sum at the same levels | 16,724 | −653 | +0.803 | **Keep**: audio-quality trade-off, verify by ear |
+| `no_debug` | SH-2 UBC disabled (`UBC_DISABLE`), no In-System Memory Content Editor hub | 17,162 | −215 | +1.706 | **Keep**: no game-visible effect |
+| `audio_lite` | Genesis low-pass filters bypassed (`LPF_MODE=11`), no hi-fi PCM interpolation. Also saves 10 DSP | 17,203 | −174 | +1.199 | **Keep**: audio-quality trade-off |
+| `area_balanced` | `OPTIMIZATION_MODE BALANCED` | 17,347 | −30 | +1.063 | Drop |
+| `no_wdt` | SH-2 watchdog disabled | 17,361 | −16 | +1.489 | Drop: no saving, accuracy risk |
+| **Combined keepers** | `area_aggressive+no_debug+audio_lite+no_genmix` | **15,631 (85 %)** | **−1,746** | **+1.324** | Current best |
+| Same without `area_aggressive` | | 16,531 | −846 | +1.770 | (area setting is worth ~900 on the trimmed design) |
+| + `jt12_shreg` | YM2612 shift registers without parallel reset → RAM | 15,536 | −95 more | +1.010 | Drop: small gain, small reset-behavior risk |
+| + `shreg_always` | Force all shift registers to RAM | 15,764 | +133 | +0.708 | Drop |
+
+Looked at and not pursued: moving SH-2 MULT/DIVU into DSP (the 32×32 multiplies are already
+DSP, and the divider is a 1-bit/cycle iterative design; sharing its two 65-bit adders might save
+~100 ALMs per CPU). SCI stays, because the 32X wires master↔slave SCI together and games can
+use it.
+
+**Where this leaves the budget:** 15,631 (system) + ~1,300–1,700 (Pocket side) ≈
+**16,900–17,300 ALMs, 92–94 %**. That's a fit, but ~300–700 ALMs short of the ~10 % headroom
+target. Remaining candidates, roughly in order of risk:
+1. Fitter seed sweep: ±1–2 % variance is typical at this utilization.
+2. Share DIVU adders (~200 for both CPUs). SH-2 cache tag RAMs from MLAB/registers into M10K
+   (~100–150 per CPU).
+3. Keep the Pocket side lean: no lightgun, one shared dcfifo-based loader.
+4. Genesis VDP register usage (1,869 registers, the biggest register block) deserves a look.
+5. Only then anything that touches CPU accuracy.
+
+The headroom target is a guideline for routability and timing. openFPGA-Genesis ships at 67 %,
+but plenty of Pocket cores ship above 90 %. Timing at 85 % is +1.3 ns, better than the
+baseline's.
 
 ## 5. Clocks
 
