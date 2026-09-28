@@ -54,9 +54,14 @@ Results go in `docs/test-log.md` (create on first test): date, build hash, Pocke
   observability tool without JTAG.
 - **Bridge-readable status registers:** expose counters/state at a bridge address so the
   host side can report them.
-- **SignalTap** (`src/fpga/core/stp1.stp` exists in the template) needs a JTAG
-  connection to the Pocket's FPGA, which isn't available on a stock retail unit. Treat it
-  as unavailable unless the owner has a dev setup.
+- **JTAG + SignalTap** (`src/fpga/core/stp1.stp` exists in the template): every Pocket has
+  a JTAG header on the bottom edge next to the USB-C port (see Analogue's openFPGA
+  "Getting Started" docs). With a USB Blaster connected you can load a `.sof` directly,
+  taking seconds with no SD-card shuffle, and use SignalTap as an on-chip logic analyzer. Use a
+  genuine or licensed USB Blaster (Intel or Terasic). Cheap clones have reportedly killed a
+  Pocket. Optional for M0–M2, but strongly recommended from M3 on, when dual-SH-2 and
+  memory-controller bugs start. On a desktop session, Claude can drive `quartus_pgm` and
+  `quartus_stp` itself.
 - **Simulation first:** anything testable in simulation (CPU boot sequences, VDP line
   output, memory controller behavior) should be proven there before costing the owner a
   hardware cycle.
