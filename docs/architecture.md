@@ -125,8 +125,13 @@ resource report. If it doesn't fit, options include:
 
 - **Quartus Prime Lite 25.1std.0 Build 1129** (Linux), with Cyclone V device support only.
   Questa FPGA Starter Edition is installed alongside it for simulation.
-- The template was created with 18.1.1. The first compile in 25.1std will upgrade the
-  template IP (`mf_pllbase`) and update `LAST_QUARTUS_VERSION` in `ap_core.qsf`.
+- The template was created with 18.1.1. It compiles unchanged in 25.1std, and the template
+  IP (`mf_pllbase`) needed no upgrade. Only `LAST_QUARTUS_VERSION` in `ap_core.qsf` changed.
+- Headless build: `cd src/fpga && quartus_sh --flow compile ap_core`, then
+  `tools/reverse_bits.py` and `tools/package.py [--zip]`.
+- Template baseline (2026-09-28, 25.1std): 413 / 18,480 ALMs (2 %), 718 registers, 2 / 308
+  M10K, 0 DSP, 1 / 4 PLL, 224 / 224 pins. Timing met in all corners (worst hold slack
+  +0.110 ns on `clk_74a`, fast 0 °C corner). No critical warnings.
 
 ## 6. Video path
 

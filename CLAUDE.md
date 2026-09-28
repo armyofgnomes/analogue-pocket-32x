@@ -72,11 +72,15 @@ Quartus isn't installed in Claude's cloud container, so Claude can edit RTL and 
 lint or simulation there, but synthesis and fitting happen on the owner's machine (or a CI
 runner with Quartus, if added later).
 
-1. Open `src/fpga/ap_core.qpf`, compile. Output: `src/fpga/output_files/ap_core.rbf`.
-2. Bit-reverse the `.rbf` into `bitstream.rbf_r`. The Pocket requires each byte's bit
-   order reversed. A small script for this is a Phase 0 requirement (see
-   `docs/requirements.md`, REQ-TOOL-02).
-3. Stage onto the SD card per `docs/hardware-testing.md`.
+The owner's machine has Quartus Prime Lite 25.1std at `~/altera_lite/25.1std/quartus/bin/`,
+so a local session can run the full build headless.
+
+1. Compile: `cd src/fpga && quartus_sh --flow compile ap_core` (or open `ap_core.qpf` in the
+   GUI). Output: `src/fpga/output_files/ap_core.rbf`.
+2. `tools/reverse_bits.py` bit-reverses each byte of the `.rbf` into `output/bitstream.rbf_r`,
+   the format the Pocket requires.
+3. `tools/package.py [--zip]` stages an SD-card tree in `build/sdcard/` (layout per
+   `docs/hardware-testing.md`). Copy its contents to the SD card root.
 
 ## Working with the owner
 

@@ -32,9 +32,9 @@ Update the status column in the same commit that completes a requirement.
 
 | ID | Pri | Requirement | Verify | Status |
 |---|---|---|---|---|
-| REQ-TOOL-01 | P0 | Pick and record a Quartus Prime Lite version. The project compiles cleanly with it (`docs/architecture.md` §5 notes version) | FIT | WIP |
-| REQ-TOOL-02 | P0 | Script to bit-reverse `ap_core.rbf` → `bitstream.rbf_r` (e.g. `tools/reverse_bits.py`) | SIM | TODO |
-| REQ-TOOL-03 | P0 | Script to assemble an SD-card-ready package (`Cores/`, `Platforms/`, `Assets/` layout) from repo files + built bitstream | HW | TODO |
+| REQ-TOOL-01 | P0 | Pick and record a Quartus Prime Lite version. The project compiles cleanly with it (`docs/architecture.md` §5 notes version) | FIT | DONE |
+| REQ-TOOL-02 | P0 | Script to bit-reverse `ap_core.rbf` → `bitstream.rbf_r` (e.g. `tools/reverse_bits.py`) | SIM | DONE |
+| REQ-TOOL-03 | P0 | Script to assemble an SD-card-ready package (`Cores/`, `Platforms/`, `Assets/` layout) from repo files + built bitstream | HW | WIP |
 | REQ-TOOL-04 | P1 | Simulation setup for core logic (Verilator and/or GHDL + Icarus/ModelSim for mixed VHDL/Verilog), runnable in Claude's container | SIM | TODO |
 | REQ-TOOL-05 | P1 | Build-ID and version stamping (template's `build_id_gen.tcl`) surfaced in `core.json` versions/release notes | DOC | TODO |
 | REQ-TOOL-06 | P2 | CI build (GitHub Actions with a Quartus container) producing the `.rbf_r` and zip artifact | FIT | TODO |

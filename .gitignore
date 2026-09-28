@@ -1,3 +1,11 @@
 
 # Local, copyrighted BIOS images (never commit)
 /bios/
+
+# Packaged SD-card output from tools/package.py
+/build/
+
+# Quartus-generated assignment defaults
+/src/fpga/ap_core_assignment_defaults.qdf
+
+__pycache__/
