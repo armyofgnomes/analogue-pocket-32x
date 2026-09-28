@@ -285,16 +285,6 @@ assign cram1_we_n = 1;
 assign cram1_ub_n = 1;
 assign cram1_lb_n = 1;
 
-assign dram_a = 'h0;
-assign dram_ba = 'h0;
-assign dram_dq = {16{1'bZ}};
-assign dram_dqm = 'h0;
-assign dram_clk = 'h0;
-assign dram_cke = 'h0;
-assign dram_ras_n = 'h1;
-assign dram_cas_n = 'h1;
-assign dram_we_n = 'h1;
-
 assign sram_a = 'h0;
 assign sram_dq = {16{1'bZ}};
 assign sram_oe_n  = 1;
@@ -493,193 +483,225 @@ core_bridge_cmd icb (
 
 
 ////////////////////////////////////////////////////////////////////////////////////////
+// Clocks and reset
 
+    wire    clk_sys;        // 53.693181 MHz MCLK
+    wire    clk_ram;        // 107.386363 MHz SDRAM
+    wire    clk_vid;        // 26.846590 MHz video (MCLK/2)
+    wire    clk_vid_90;
 
-
-// video generation
-// ~12,288,000 hz pixel clock
-//
-// we want our video mode of 320x240 @ 60hz, this results in 204800 clocks per frame
-// we need to add hblank and vblank times to this, so there will be a nondisplay area. 
-// it can be thought of as a border around the visible area.
-// to make numbers simple, we can have 400 total clocks per line, and 320 visible.
-// dividing 204800 by 400 results in 512 total lines per frame, and 240 visible.
-// this pixel clock is fairly high for the relatively low resolution, but that's fine.
-// PLL output has a minimum output frequency anyway.
-
-
-assign video_rgb_clock = clk_core_12288;
-assign video_rgb_clock_90 = clk_core_12288_90deg;
-assign video_rgb = vidout_rgb;
-assign video_de = vidout_de;
-assign video_skip = vidout_skip;
-assign video_vs = vidout_vs;
-assign video_hs = vidout_hs;
-
-    localparam  VID_V_BPORCH = 'd10;
-    localparam  VID_V_ACTIVE = 'd240;
-    localparam  VID_V_TOTAL = 'd512;
-    localparam  VID_H_BPORCH = 'd10;
-    localparam  VID_H_ACTIVE = 'd320;
-    localparam  VID_H_TOTAL = 'd400;
-
-    reg [15:0]  frame_count;
-    
-    reg [9:0]   x_count;
-    reg [9:0]   y_count;
-    
-    wire [9:0]  visible_x = x_count - VID_H_BPORCH;
-    wire [9:0]  visible_y = y_count - VID_V_BPORCH;
-
-    reg [23:0]  vidout_rgb;
-    reg         vidout_de, vidout_de_1;
-    reg         vidout_skip;
-    reg         vidout_vs;
-    reg         vidout_hs, vidout_hs_1;
-    
-    reg [9:0]   square_x = 'd135;
-    reg [9:0]   square_y = 'd95;
-
-always @(posedge clk_core_12288 or negedge reset_n) begin
-
-    if(~reset_n) begin
-    
-        x_count <= 0;
-        y_count <= 0;
-        
-    end else begin
-        vidout_de <= 0;
-        vidout_skip <= 0;
-        vidout_vs <= 0;
-        vidout_hs <= 0;
-        
-        vidout_hs_1 <= vidout_hs;
-        vidout_de_1 <= vidout_de;
-        
-        // x and y counters
-        x_count <= x_count + 1'b1;
-        if(x_count == VID_H_TOTAL-1) begin
-            x_count <= 0;
-            
-            y_count <= y_count + 1'b1;
-            if(y_count == VID_V_TOTAL-1) begin
-                y_count <= 0;
-            end
-        end
-        
-        // generate sync 
-        if(x_count == 0 && y_count == 0) begin
-            // sync signal in back porch
-            // new frame
-            vidout_vs <= 1;
-            frame_count <= frame_count + 1'b1;
-        end
-        
-        // we want HS to occur a bit after VS, not on the same cycle
-        if(x_count == 3) begin
-            // sync signal in back porch
-            // new line
-            vidout_hs <= 1;
-        end
-
-        // inactive screen areas are black
-        vidout_rgb <= 24'h0;
-        // generate active video
-        if(x_count >= VID_H_BPORCH && x_count < VID_H_ACTIVE+VID_H_BPORCH) begin
-
-            if(y_count >= VID_V_BPORCH && y_count < VID_V_ACTIVE+VID_V_BPORCH) begin
-                // data enable. this is the active region of the line
-                vidout_de <= 1;
-                
-                // M1 test pattern: 8 vertical 75% color bars, 40 pixels each, left to right
-                // white, yellow, cyan, green, magenta, red, blue, black. Checks RGB channel
-                // order and that all 320 columns reach the screen.
-                case(visible_x / 10'd40)
-                    10'd0: vidout_rgb <= 24'hBFBFBF;
-                    10'd1: vidout_rgb <= 24'hBFBF00;
-                    10'd2: vidout_rgb <= 24'h00BFBF;
-                    10'd3: vidout_rgb <= 24'h00BF00;
-                    10'd4: vidout_rgb <= 24'hBF00BF;
-                    10'd5: vidout_rgb <= 24'hBF0000;
-                    10'd6: vidout_rgb <= 24'h0000BF;
-                    default: vidout_rgb <= 24'h000000;
-                endcase
-
-            end 
-        end
-    end
-end
-
-
-
-
-//
-// audio i2s silence generator
-// see other examples for actual audio generation
-//
-
-assign audio_mclk = audgen_mclk;
-assign audio_dac = audgen_dac;
-assign audio_lrck = audgen_lrck;
-
-// generate MCLK = 12.288mhz with fractional accumulator
-    reg         [21:0]  audgen_accum;
-    reg                 audgen_mclk;
-    parameter   [20:0]  CYCLE_48KHZ = 21'd122880 * 2;
-always @(posedge clk_74a) begin
-    audgen_accum <= audgen_accum + CYCLE_48KHZ;
-    if(audgen_accum >= 21'd742500) begin
-        audgen_mclk <= ~audgen_mclk;
-        audgen_accum <= audgen_accum - 21'd742500 + CYCLE_48KHZ;
-    end
-end
-
-// generate SCLK = 3.072mhz by dividing MCLK by 4
-    reg [1:0]   aud_mclk_divider;
-    wire        audgen_sclk = aud_mclk_divider[1] /* synthesis keep*/;
-    reg         audgen_lrck_1;
-always @(posedge audgen_mclk) begin
-    aud_mclk_divider <= aud_mclk_divider + 1'b1;
-end
-
-// shift out audio data as I2S 
-// 32 total bits per channel, but only 16 active bits at the start and then 16 dummy bits
-//
-    reg     [4:0]   audgen_lrck_cnt;    
-    reg             audgen_lrck;
-    reg             audgen_dac;
-always @(negedge audgen_sclk) begin
-    audgen_dac <= 1'b0;
-    // 48khz * 64
-    audgen_lrck_cnt <= audgen_lrck_cnt + 1'b1;
-    if(audgen_lrck_cnt == 31) begin
-        // switch channels
-        audgen_lrck <= ~audgen_lrck;
-        
-    end 
-end
-
-
-///////////////////////////////////////////////
-
-
-    wire    clk_core_12288;
-    wire    clk_core_12288_90deg;
-    
     wire    pll_core_locked;
     wire    pll_core_locked_s;
 synch_3 s01(pll_core_locked, pll_core_locked_s, clk_74a);
 
-mf_pllbase mp1 (
+pll_core mp1 (
     .refclk         ( clk_74a ),
     .rst            ( 0 ),
-    
-    .outclk_0       ( clk_core_12288 ),
-    .outclk_1       ( clk_core_12288_90deg ),
-    
+    .outclk_0       ( clk_sys ),
+    .outclk_1       ( clk_ram ),
+    .outclk_2       ( clk_vid ),
+    .outclk_3       ( clk_vid_90 ),
     .locked         ( pll_core_locked )
 );
 
+    wire    reset_n_s;
+    wire    pll_locked_sys;
+synch_3 s02(reset_n, reset_n_s, clk_sys);
+synch_3 s03(pll_core_locked, pll_locked_sys, clk_sys);
 
-    
+////////////////////////////////////////////////////////////////////////////////////////
+// ROM loading (data slot 0 at bridge address 0x10000000)
+
+// rom_loading: set when the host starts writing a data slot, cleared when all slots are done.
+    reg     rom_loading_74a = 0;
+always @(posedge clk_74a) begin
+    if (dataslot_requestwrite) rom_loading_74a <= 1;
+    else if (dataslot_allcomplete) rom_loading_74a <= 0;
+end
+
+    wire    rom_loading_s;
+synch_3 s04(rom_loading_74a, rom_loading_s, clk_sys);
+
+// Hold loading (and so reset) a little longer so the loader FIFO drains into SDRAM.
+    reg     [11:0]  rom_drain = 0;
+    wire            rom_loading = rom_loading_s | (rom_drain != 0);
+always @(posedge clk_sys) begin
+    if (rom_loading_s) rom_drain <= 12'hFFF;
+    else if (rom_drain != 0) rom_drain <= rom_drain - 1'd1;
+end
+
+    wire            rom_wr;
+    wire    [27:0]  rom_wr_addr;
+    wire    [15:0]  rom_wr_data;
+
+data_loader #(
+    .ADDRESS_MASK_UPPER_4       ( 4'h1 ),
+    .ADDRESS_SIZE               ( 28 ),
+    .WRITE_MEM_CLOCK_DELAY      ( 16 ),     // 300 ns per word: SDRAM write + possible refresh
+    .WRITE_MEM_EN_CYCLE_LENGTH  ( 2 ),
+    .OUTPUT_WORD_SIZE           ( 2 )
+) rom_loader (
+    .clk_74a                ( clk_74a ),
+    .clk_memory             ( clk_sys ),
+    .bridge_wr              ( bridge_wr ),
+    .bridge_endian_little   ( bridge_endian_little ),
+    .bridge_addr            ( bridge_addr ),
+    .bridge_wr_data         ( bridge_wr_data ),
+    .write_en               ( rom_wr ),
+    .write_addr             ( rom_wr_addr ),
+    .write_data             ( rom_wr_data )
+);
+
+////////////////////////////////////////////////////////////////////////////////////////
+// Controls: Pocket pad -> Genesis pad (same layout as openFPGA-Genesis)
+//   Genesis A = Pocket Y, B = B, C = A, X = L, Y = X, Z = R, Start = Start, Mode = Select
+
+    wire    [15:0]  cont1_key_s;
+    wire    [15:0]  cont2_key_s;
+synch_3 #(.WIDTH(16)) s05(cont1_key[15:0], cont1_key_s, clk_sys);
+synch_3 #(.WIDTH(16)) s06(cont2_key[15:0], cont2_key_s, clk_sys);
+
+function [11:0] genesis_pad(input [15:0] k);
+    genesis_pad = {
+        k[9],   // Z     <- R
+        k[6],   // Y     <- X
+        k[8],   // X     <- L
+        k[14],  // Mode  <- Select
+        k[15],  // Start <- Start
+        k[4],   // C     <- A
+        k[5],   // B     <- B
+        k[7],   // A     <- Y
+        k[0],   // up
+        k[1],   // down
+        k[2],   // left
+        k[3]    // right
+    };
+endfunction
+
+////////////////////////////////////////////////////////////////////////////////////////
+// Console
+
+    wire    [7:0]   sys_r, sys_g, sys_b;
+    wire            sys_ce_pix, sys_hblank, sys_vblank, sys_hs_n, sys_vs_n;
+    wire    [1:0]   sys_resolution;
+    wire    [15:0]  sys_audio_l, sys_audio_r;
+
+s32x_system system (
+    .clk_sys        ( clk_sys ),
+    .clk_ram        ( clk_ram ),
+    .pll_locked     ( pll_locked_sys ),
+    .reset          ( ~reset_n_s | ~pll_locked_sys ),
+
+    .rom_loading    ( rom_loading ),
+    .rom_wr         ( rom_wr ),
+    .rom_wr_addr    ( rom_wr_addr[23:0] ),
+    .rom_wr_data    ( rom_wr_data ),
+
+    .joy_1          ( genesis_pad(cont1_key_s) ),
+    .joy_2          ( genesis_pad(cont2_key_s) ),
+    .j3but          ( 1'b1 ),
+
+    .r              ( sys_r ),
+    .g              ( sys_g ),
+    .b              ( sys_b ),
+    .ce_pix         ( sys_ce_pix ),
+    .hblank         ( sys_hblank ),
+    .vblank         ( sys_vblank ),
+    .hs_n           ( sys_hs_n ),
+    .vs_n           ( sys_vs_n ),
+    .resolution     ( sys_resolution ),
+    .interlace      ( ),
+    .field          ( ),
+    .pal            ( ),
+
+    .audio_l        ( sys_audio_l ),
+    .audio_r        ( sys_audio_r ),
+
+    .SDRAM_DQ       ( dram_dq ),
+    .SDRAM_A        ( dram_a ),
+    .SDRAM_DQML     ( dram_dqm[0] ),
+    .SDRAM_DQMH     ( dram_dqm[1] ),
+    .SDRAM_BA       ( dram_ba ),
+    .SDRAM_nWE      ( dram_we_n ),
+    .SDRAM_nRAS     ( dram_ras_n ),
+    .SDRAM_nCAS     ( dram_cas_n ),
+    .SDRAM_CLK      ( dram_clk ),
+    .SDRAM_CKE      ( dram_cke )
+);
+
+////////////////////////////////////////////////////////////////////////////////////////
+// Video to the Pocket scaler
+//
+// clk_vid is MCLK/2 from the same PLL, so the clk_sys -> clk_vid paths below are ordinary
+// synchronous paths. Each console pixel (one sys_ce_pix) is latched in the clk_sys domain and
+// flagged with a toggle. clk_vid sees each pixel for 4 (H40) or 5 (H32) cycles: the first is
+// written (video_skip = 0), the rest are skipped. DE stays high across the whole active line.
+// Outside DE, video_rgb[23:13] carries the scaler slot = {V30, H40} (see video.json).
+
+    reg     [23:0]  pix_rgb;
+    reg             pix_hs, pix_vs, pix_hbl, pix_vbl;
+    reg             pix_tog = 0;
+    reg     [1:0]   pix_res;
+always @(posedge clk_sys) begin
+    if (sys_ce_pix) begin
+        pix_rgb <= {sys_r, sys_g, sys_b};
+        pix_hs  <= ~sys_hs_n;
+        pix_vs  <= ~sys_vs_n;
+        pix_hbl <= sys_hblank;
+        pix_vbl <= sys_vblank;
+        pix_res <= sys_resolution;
+        pix_tog <= ~pix_tog;
+    end
+end
+
+    reg     [23:0]  vid_rgb;
+    reg             vid_de, vid_skip, vid_hs, vid_vs;
+    reg             vid_tog, vid_hs_prev, vid_vs_prev, vid_vbl_line;
+always @(posedge clk_vid) begin
+    vid_tog <= pix_tog;
+    vid_hs  <= 0;
+    vid_vs  <= 0;
+    vid_skip <= 1;
+
+    if (vid_tog != pix_tog) begin
+        // A new console pixel
+        vid_skip    <= 0;
+        vid_hs_prev <= pix_hs;
+        vid_vs_prev <= pix_vs;
+        if (pix_hs & ~vid_hs_prev) begin
+            vid_hs <= 1;
+            // Decide at hsync whether the coming line is visible (vblank toggles mid-line)
+            vid_vbl_line <= pix_vbl;
+        end
+        if (pix_vs & ~vid_vs_prev) vid_vs <= 1;
+
+        vid_de <= ~(pix_hbl | vid_vbl_line);
+        vid_rgb <= (pix_hbl | vid_vbl_line) ? {9'd0, pix_res, 13'd0} : pix_rgb;
+    end
+end
+
+assign video_rgb_clock      = clk_vid;
+assign video_rgb_clock_90   = clk_vid_90;
+assign video_rgb            = vid_rgb;
+assign video_de             = vid_de;
+assign video_skip           = vid_de & vid_skip;
+assign video_vs             = vid_vs;
+assign video_hs             = vid_hs;
+
+////////////////////////////////////////////////////////////////////////////////////////
+// Audio
+
+sound_i2s #(
+    .CHANNEL_WIDTH  ( 16 ),
+    .SIGNED_INPUT   ( 1 )
+) sound_i2s (
+    .clk_74a        ( clk_74a ),
+    .clk_audio      ( clk_sys ),
+    .audio_l        ( sys_audio_l ),
+    .audio_r        ( sys_audio_r ),
+    .audio_mclk     ( audio_mclk ),
+    .audio_lrck     ( audio_lrck ),
+    .audio_dac      ( audio_dac )
+);
+
 endmodule

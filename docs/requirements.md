@@ -43,8 +43,8 @@ Update the status column in the same commit that completes a requirement.
 
 | ID | Pri | Requirement | Verify | Status |
 |---|---|---|---|---|
-| REQ-LEGAL-01 | P0 | Choose a project license compatible with imported GPL code (GPLv3 likely) and add `LICENSE` | DOC | TODO |
-| REQ-LEGAL-02 | P0 | Every imported third-party directory keeps its license and records upstream URL + commit | DOC | TODO |
+| REQ-LEGAL-01 | P0 | Choose a project license compatible with imported GPL code (GPLv3 likely) and add `LICENSE` | DOC | DONE |
+| REQ-LEGAL-02 | P0 | Every imported third-party directory keeps its license and records upstream URL + commit | DOC | WIP |
 | REQ-LEGAL-03 | P0 | No copyrighted BIOS/ROM data committed to git. Strip upstream `mdbios.mif` / `shbios.mif` from imported code. Local BIOS goes in a gitignored `bios/` dir. A bitstream with embedded BIOS is fine for **personal use** but must never be published | DOC | TODO |
 | REQ-LEGAL-04 | P1 | Credits/attribution in `README.md` and `info.txt` (srg320, Jorge Cwik/fx68k, Jose Tejada/jt12/jt89, T80 authors, Genesis core authors, Pocket port authors referenced) | DOC | TODO |
 
@@ -65,10 +65,10 @@ Update the status column in the same commit that completes a requirement.
 |---|---|---|---|---|
 | REQ-APF-01 | P0 | `core.json`: real metadata (author, shortname, description, version, URL), `platform_ids` set to our platform, correct framework flags | HW | WIP |
 | REQ-APF-02 | P0 | Platform definition: `dist/platforms/<id>.json` (category "Console", name "32X", manufacturer Sega, year 1994) and platform image `.bin`. Replace the `ex_platform` placeholders | HW | WIP |
-| REQ-APF-03 | P0 | `data.json` cartridge ROM slot (`.32x`, also `.bin`/`.md`/`.gen` for plain Genesis) | HW | TODO |
+| REQ-APF-03 | P0 | `data.json` cartridge ROM slot (`.32x`, also `.bin`/`.md`/`.gen` for plain Genesis) | HW | WIP |
 | REQ-APF-03a | P0 | BIOS available to the core. **Phase 1 (acceptable end state for personal use):** embedded at build time from gitignored `bios/` files. Build fails clearly if they're missing | FIT | TODO |
 | REQ-APF-03b | P2 | BIOS loaded at runtime from data slots instead (68K, master SH-2, slave SH-2 in `Assets/<platform>/common/`), with a visible error if missing. Needed only if the core is ever shared publicly | HW | TODO |
-| REQ-APF-04 | P0 | Bridge-driven loading: data-slot writes land in the correct external memory / BRAM, with core held in reset until loading completes (`dataslot_allcomplete`) | HW | TODO |
+| REQ-APF-04 | P0 | Bridge-driven loading: data-slot writes land in the correct external memory / BRAM, with core held in reset until loading completes (`dataslot_allcomplete`) | HW | WIP |
 | REQ-APF-05 | P0 | Replace template `icon.bin` and `info.txt` with project-specific content | HW | TODO |
 | REQ-APF-06 | P1 | `interact.json` settings: region (auto/US/EU/JP), 6-button pad toggle, audio options (FM chip variant, lowpass), video options (border, composite blending), reset. Values wired through the bridge | HW | TODO |
 | REQ-APF-07 | P1 | Optional Genesis TMSS BIOS slot (off by default) | HW | TODO |
@@ -78,7 +78,7 @@ Update the status column in the same commit that completes a requirement.
 
 | ID | Pri | Requirement | Verify | Status |
 |---|---|---|---|---|
-| REQ-CLK-01 | P0 | New PLL(s) replacing the template's `mf_pllbase` per REQ-ARCH-05. Lock is used in reset | FIT | TODO |
+| REQ-CLK-01 | P0 | New PLL(s) replacing the template's `mf_pllbase` per REQ-ARCH-05. Lock is used in reset | FIT | WIP |
 | REQ-CLK-02 | P0 | Clock-enable generator for 68K (/7), Z80 (/15), SH-2 (×3/7), VDP and FM, matching MiSTer's `CEGen` | SIM | TODO |
 | REQ-CLK-03 | P0 | All bridge ↔ core crossings synchronized. Timing analysis shows no unconstrained paths. SDC updated | FIT | TODO |
 | REQ-CLK-04 | P0 | Positive setup/hold slack on all corners in the final build | FIT | TODO |
@@ -87,7 +87,7 @@ Update the status column in the same commit that completes a requirement.
 
 | ID | Pri | Requirement | Verify | Status |
 |---|---|---|---|---|
-| REQ-MEM-01 | P0 | SDRAM controller for the Pocket's 64 MB SDRAM, multi-port: cart ROM (68K + SH-2 + Z80 bank), loader writes, and (if chosen) 32X SDRAM + save RAM, with bounded latency | HW | TODO |
+| REQ-MEM-01 | P0 | SDRAM controller for the Pocket's 64 MB SDRAM, multi-port: cart ROM (68K + SH-2 + Z80 bank), loader writes, and (if chosen) 32X SDRAM + save RAM, with bounded latency | HW | WIP |
 | REQ-MEM-02 | P0 | Framebuffer storage in external memory (SRAM proposed) supporting 32X VDP scanout, SH-2 reads/writes, and VDP auto-fill, with FB swap semantics | HW | TODO |
 | REQ-MEM-03 | P0 | 32X SDRAM (256 KB) in external memory with wait-state behavior close to real hardware | HW | TODO |
 | REQ-MEM-04 | P0 | BIOS images in BRAM (initialized at build time, or loaded from data slots per REQ-APF-03b). Correct mapping at SH-2 0x00000000 and 68K vector area | SIM | TODO |
@@ -98,7 +98,7 @@ Update the status column in the same commit that completes a requirement.
 
 | ID | Pri | Requirement | Verify | Status |
 |---|---|---|---|---|
-| REQ-GEN-01 | P0 | 68000 (fx68k), Z80 (T80), VDP, YM2612 (jt12), PSG (jt89) integrated from the chosen base | HW | TODO |
+| REQ-GEN-01 | P0 | 68000 (fx68k), Z80 (T80), VDP, YM2612 (jt12), PSG (jt89) integrated from the chosen base | HW | WIP |
 | REQ-GEN-02 | P0 | Plain Genesis/Mega Drive ROMs boot and play (non-32X carts pass through when 32X is disabled) | HW | TODO |
 | REQ-GEN-03 | P0 | Region/version register from header auto-detect + override | HW | TODO |
 | REQ-GEN-04 | P1 | Cart mappers needed by 32X carts and common Genesis carts (SSF2 banking at minimum). EEPROM carts as in base core | HW | TODO |
