@@ -1,3 +1,4 @@
-Example Core - Core Template
+Sega 32X core for Analogue Pocket (work in progress).
 
-This is a template for a core containing all of the core definition JSON files and FPGA starter code.
+Personal-use development build. Currently shows the template's gray test screen only.
+https://github.com/armyofgnomes/32x-core

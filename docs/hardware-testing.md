@@ -6,7 +6,7 @@ tests. This doc keeps that loop fast and unambiguous.
 ## SD card layout
 
 Pocket openFPGA cores are loaded from the SD card root. Replace `<Author>`, `<Core>` and
-`<platform>` once REQ-APF-01/02 are settled (the template uses `ex_platform`).
+`<platform>` with the values from `core.json` (currently `armyofgnomes`, `32X`, `32x`).
 
 ```
 /Cores/<Author>.<Core>/
