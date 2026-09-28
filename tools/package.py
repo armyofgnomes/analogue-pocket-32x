@@ -3,12 +3,14 @@
 
 Usage: package.py [--out DIR] [--zip]
 Defaults to build/sdcard/ under the repo root. Copy the contents of that directory to the
-SD card root. The core folder is Cores/<author>.<shortname> (spaces removed) and the
-platform is platform_ids[0], both read from core.json.
+SD card root. The core folder is Cores/<author>.<shortname>, which the Pocket requires to
+match core.json exactly, so both fields are restricted to [A-Za-z0-9_-]. The platform is
+platform_ids[0]. All three are read from core.json.
 """
 
 import argparse
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -29,7 +31,12 @@ def main() -> int:
         if name.endswith(".json"):
             json.loads((REPO / name).read_text())
     meta = json.loads((REPO / "core.json").read_text())["core"]["metadata"]
-    core_dir = f"{meta['author']}.{meta['shortname']}".replace(" ", "")
+    for field in ("author", "shortname"):
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,31}", meta[field]):
+            print(f"core.json {field} {meta[field]!r} must be 1-31 chars of [A-Za-z0-9_-]",
+                  file=sys.stderr)
+            return 1
+    core_dir = f"{meta['author']}.{meta['shortname']}"
     platform = meta["platform_ids"][0]
 
     bitstream = REPO / "output/bitstream.rbf_r"

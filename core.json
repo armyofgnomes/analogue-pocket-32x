@@ -3,7 +3,7 @@
         "magic": "APF_VER_1",
         "metadata": {
             "platform_ids": ["ex_platform"],
-            "shortname": "Core Template",
+            "shortname": "CoreTemplate",
             "description": "APF core template. Displays gray test screen.",
             "author": "Developer",
             "url": "https://github.com/open-fpga/core-template",
