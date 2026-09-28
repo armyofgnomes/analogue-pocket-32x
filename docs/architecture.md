@@ -121,6 +121,13 @@ resource report. If it doesn't fit, options include:
 - The SH-2 path at MCLK with 3/7 clock enables is the tightest timing path in the MiSTer
   core. Expect timing-closure work on the Pocket's speed grade 8 part.
 
+### Toolchain
+
+- **Quartus Prime Lite 25.1std.0 Build 1129** (Linux), with Cyclone V device support only.
+  Questa FPGA Starter Edition is installed alongside it for simulation.
+- The template was created with 18.1.1. The first compile in 25.1std will upgrade the
+  template IP (`mf_pllbase`) and update `LAST_QUARTUS_VERSION` in `ap_core.qsf`.
+
 ## 6. Video path
 
 - Output is either Genesis-only, 32X-only, or a composite based on the 32X priority bit. S32X_MiSTer
