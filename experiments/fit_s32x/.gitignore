@@ -3,3 +3,4 @@ incremental_db/
 output_files/
 qdb/
 *.qws
+c5_pin_model_dump.txt
