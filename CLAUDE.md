@@ -21,9 +21,10 @@ the same commit.
 
 ## Current state
 
-The repo is still the **unmodified Analogue openFPGA core template**. It was verified on
-2026-09-28 to be byte-identical to `open-fpga/core-template` tag **v1.3.0** (commit `da3a021`,
-the latest tag). It shows a gray test screen and has no 32X logic yet.
+M0 (tooling and feasibility) is done. M1 (our own build on hardware) is pending an owner test,
+and M2 (Genesis on the Pocket) is in progress. The core instantiates S32X_MiSTer's Genesis
+(`gen`) and cartridge mapper with SDRAM, ROM loading, video, audio and input. The 32X block
+isn't instantiated yet. The repo started as `open-fpga/core-template` v1.3.0 (commit `da3a021`).
 
 ## Repository layout
 
@@ -35,8 +36,14 @@ dist/                                             SD-card staging: icon.bin, pla
 output/bitstream.rbf_r                            Bit-reversed bitstream the Pocket loads (template's gray screen for now)
 src/fpga/ap_core.qpf / ap_core.qsf                Quartus project (Cyclone V 5CEBA4F23C8, top = apf_top)
 src/fpga/apf/                                     Analogue framework glue. Treat as vendor code; do not edit
-src/fpga/core/core_top.v                          Where the core is instantiated. All our work hooks in here
-src/fpga/core/mf_pllbase*                         Template PLL (74.25 MHz in → 12.288 MHz audio, 133 MHz); will be replaced
+src/fpga/core/core_top.v                          APF glue: bridge, ROM loader, input, video formatter, audio
+src/fpga/core/s32x_system.sv                      Console: upstream gen + CART + SDRAM controller (32X to be added)
+src/fpga/core/pll_core.v                          PLL: MCLK 53.69, SDRAM 107.39, video 26.85 (+90°) MHz
+src/fpga/core/rtl/S32X_MiSTer/                    Upstream submodule (pinned; patched at build time)
+src/fpga/core/rtl/patches/                        Our patches to upstream, applied in order
+src/fpga/core/rtl/agg23/                          agg23's MIT data_loader / sound_i2s / sync_fifo
+tools/                                            reverse_bits.py, package.py, prepare_upstream.sh
+experiments/fit_s32x/                             REQ-ARCH-03/04 fit experiment and variants
 src/fpga/core/core_bridge_cmd.v                   Host/target command handler (data slots, status). Vendor-provided
 ```
 
@@ -44,9 +51,15 @@ src/fpga/core/core_bridge_cmd.v                   Host/target command handler (d
 
 - **Don't modify `src/fpga/apf/`.** It's Analogue's framework. Put all new RTL under
   `src/fpga/core/` (for example `src/fpga/core/rtl/<block>/`) and add files to `ap_core.qsf`.
-- Imported third-party RTL (MiSTer Genesis/S32X, fx68k, T80, jt12, SH-2, etc.) goes in its
-  own subdirectory with its original LICENSE file and a short `README.md` recording the
-  upstream URL and commit hash. Keep local modifications minimal and noted.
+- **S32X_MiSTer is a git submodule** at `src/fpga/core/rtl/S32X_MiSTer`, pinned to a commit. Never
+  commit changes inside it. Local modifications are patch files in `src/fpga/core/rtl/patches/`,
+  applied by `tools/prepare_upstream.sh` (Quartus runs it via `core/pre_flow.tcl`). See that
+  directory's README. This avoids redistributing upstream code that has no stated license.
+- Other imported third-party RTL that has a clear license (e.g. agg23's MIT utilities) goes in its
+  own subdirectory with its original LICENSE file and a short `README.md` recording the upstream
+  URL and commit hash. Keep local modifications minimal and noted.
+- The project license is **GPL-3.0** (`LICENSE`), compatible with fx68k, jt12/jt89 and the GPLv3
+  SDRAM controller that end up in every bitstream.
 - **Never commit copyrighted ROMs or BIOS images** to git, including `.mif`/`.hex` BIOS
   embeds that some upstream cores ship with. Pushing them to GitHub counts as distributing them.
 - BIOS policy: the owner is fine with a personal-use-only core. **Embedding the BIOS in the

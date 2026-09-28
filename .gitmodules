@@ -1,0 +1,4 @@
+[submodule "src/fpga/core/rtl/S32X_MiSTer"]
+	path = src/fpga/core/rtl/S32X_MiSTer
+	url = https://github.com/MiSTer-devel/S32X_MiSTer.git
+	ignore = dirty

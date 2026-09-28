@@ -76,9 +76,12 @@ results (§4). Rationale:
 - openFPGA-Genesis and openfpga-megacd remain the reference for the APF plumbing (loaders,
   bridge, I2S, video modes), which we reimplement or borrow around S32X_MiSTer's `gen`.
 
-**Licensing:** S32X_MiSTer is mixed GPL-2.0-or-later / GPL-3.0 (core `LICENSE` is GPLv3;
-fx68k and jt12/jt89 are GPL-3.0-or-later). Any distributed bitstream built from it must be
-released under a compatible license with source. This repo needs a `LICENSE` (REQ-LEGAL-01).
+**Licensing (checked 2026-09-28):** S32X_MiSTer has **no top-level LICENSE**. fx68k, jt12/jt89
+and `sdram.sv` are GPL-3.0, `gen.sv` is BSD-style, and the SH-2 and 32X sources have no
+license header. Decision: this repo is **GPL-3.0** (REQ-LEGAL-01), and S32X_MiSTer is included
+as a **git submodule with build-time patches** rather than copied in, so we don't redistribute
+code without a stated license (REQ-LEGAL-02). A distributed bitstream still contains all of it,
+which is one more reason builds stay personal-use.
 
 ## 4. The central problem: memory and logic budget
 

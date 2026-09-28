@@ -1,0 +1,19 @@
+# Local patches to S32X_MiSTer
+
+`src/fpga/core/rtl/S32X_MiSTer` is a git submodule of https://github.com/MiSTer-devel/S32X_MiSTer
+pinned to a specific commit (see `git submodule status`). We never commit changes inside it.
+Instead, each local modification is a patch here, applied in name order by
+`tools/prepare_upstream.sh`. Quartus runs that script automatically before every compile
+(`core/pre_flow.tcl`).
+
+| Patch | Why |
+|---|---|
+| `0001-bram-no-runtime-mod.patch` | Turn off `ENABLE_RUNTIME_MOD` in `bram.vhd`. That MiSTer debug aid pulls a JTAG hub into the design (~58 ALMs, REQ-ARCH-04) |
+| `0002-sdram-pocket-timing.patch` | `sdram.sv`: tRCD 3 cycles and CAS latency 3 at 107 MHz for the Pocket's SDRAM (the values openFPGA-Genesis uses on hardware) |
+
+To add a patch: edit files in the submodule, `git -C src/fpga/core/rtl/S32X_MiSTer diff > src/fpga/core/rtl/patches/NNNN-name.patch`,
+then run `tools/prepare_upstream.sh` to confirm the full series applies to a clean checkout.
+
+Licensing: S32X_MiSTer has no top-level LICENSE. fx68k, jt12/jt89 and `sdram.sv` are GPLv3,
+`gen.sv` is BSD-style, and the SH-2/32X sources carry no license header. Keeping upstream as a
+submodule means this repo points at that code rather than redistributing it.
