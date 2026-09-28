@@ -52,7 +52,7 @@ Update the status column in the same commit that completes a requirement.
 
 | ID | Pri | Requirement | Verify | Status |
 |---|---|---|---|---|
-| REQ-ARCH-01 | P0 | Decide the base: port S32X_MiSTer system logic (recommended) vs. openFPGA-Genesis + graft 32X. Record the decision and rationale | DOC | TODO |
+| REQ-ARCH-01 | P0 | Decide the base: port S32X_MiSTer system logic (recommended) vs. openFPGA-Genesis + graft 32X. Record the decision and rationale | DOC | DONE |
 | REQ-ARCH-02 | P0 | Finalize memory map for cart ROM, 32X SDRAM, framebuffers, save RAM, BIOS (proposal in `architecture.md` §4), including a bandwidth budget per memory | DOC | TODO |
 | REQ-ARCH-03 | P0 | **Fit experiment:** synthesize the S32X system logic (no MiSTer `sys/`) for 5CEBA4F23C8 with framebuffers stubbed out of BRAM. Record ALM / M10K / DSP / PLL usage and Fmax | FIT | DONE |
 | REQ-ARCH-04 | P0 | If REQ-ARCH-03 is over budget: a reduction plan with estimated savings per item, executed until fit with ≥ ~10% ALM headroom for routing | FIT | WIP |

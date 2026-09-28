@@ -65,6 +65,17 @@ There's **no existing Pocket 32X core** as of 2026-09. Useful upstream code:
 timing-matched to each other), and borrow the Pocket-side plumbing patterns from
 openFPGA-Genesis and openfpga-megacd. Decision tracked as REQ-ARCH-01.
 
+**Decision (REQ-ARCH-01, 2026-09-28): port S32X_MiSTer.** The owner approved it after the M0 fit
+results (§4). Rationale:
+- Genesis and 32X in S32X_MiSTer are already timing-matched to each other. Grafting a 32X onto
+  openFPGA-Genesis would mean re-deriving that bus timing by hand.
+- The fit experiment shows the S32X_MiSTer system logic fits the Pocket at 85 % ALMs after
+  accuracy-neutral or audio-only trims, with timing met (+1.3 ns).
+- Its Genesis VDP keeps a single VRAM copy, so block RAM stays at ~41 %. openFPGA-Genesis uses
+  97 % of M10K, which would leave no room for 32X caches, palette and FIFOs.
+- openFPGA-Genesis and openfpga-megacd remain the reference for the APF plumbing (loaders,
+  bridge, I2S, video modes), which we reimplement or borrow around S32X_MiSTer's `gen`.
+
 **Licensing:** S32X_MiSTer is mixed GPL-2.0-or-later / GPL-3.0 (core `LICENSE` is GPLv3;
 fx68k and jt12/jt89 are GPL-3.0-or-later). Any distributed bitstream built from it must be
 released under a compatible license with source. This repo needs a `LICENSE` (REQ-LEGAL-01).

@@ -4,10 +4,10 @@
         "metadata": {
             "platform_ids": ["32x"],
             "shortname": "32X",
-            "description": "Sega 32X (Genesis + 32X). Work in progress: template gray screen only.",
+            "description": "Sega 32X (Genesis + 32X). Work in progress: color-bar test pattern only.",
             "author": "armyofgnomes",
             "url": "https://github.com/armyofgnomes/32x-core",
-            "version": "0.0.1",
+            "version": "0.0.2",
             "date_release": "2026-09-28"
         },
         "framework": {

@@ -591,10 +591,20 @@ always @(posedge clk_core_12288 or negedge reset_n) begin
                 // data enable. this is the active region of the line
                 vidout_de <= 1;
                 
-                vidout_rgb[23:16] <= 8'd60;
-                vidout_rgb[15:8]  <= 8'd60;
-                vidout_rgb[7:0]   <= 8'd60;
-                
+                // M1 test pattern: 8 vertical 75% color bars, 40 pixels each, left to right
+                // white, yellow, cyan, green, magenta, red, blue, black. Checks RGB channel
+                // order and that all 320 columns reach the screen.
+                case(visible_x / 10'd40)
+                    10'd0: vidout_rgb <= 24'hBFBFBF;
+                    10'd1: vidout_rgb <= 24'hBFBF00;
+                    10'd2: vidout_rgb <= 24'h00BFBF;
+                    10'd3: vidout_rgb <= 24'h00BF00;
+                    10'd4: vidout_rgb <= 24'hBF00BF;
+                    10'd5: vidout_rgb <= 24'hBF0000;
+                    10'd6: vidout_rgb <= 24'h0000BF;
+                    default: vidout_rgb <= 24'h000000;
+                endcase
+
             end 
         end
     end
