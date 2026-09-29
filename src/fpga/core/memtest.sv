@@ -21,7 +21,7 @@
 module memtest
 #(
 	parameter AW   = 16,       // framebuffer words tested per buffer = 2^AW (16 = whole buffer)
-	parameter HOLD = 6'd40     // cycles each framebuffer request is held
+	parameter HOLD = 6'd40     // 40: per-row hold from the sweep table; other values override it
 )
 (
 	input             clk,
@@ -41,6 +41,7 @@ module memtest
 	output reg        FB_FS,
 	output      [3:0] cfg_rd,
 	output      [3:0] cfg_we,
+	output            cfg_half,
 
 	// sdram.sv port 0
 	output reg [24:1] sdr_addr,
@@ -68,15 +69,22 @@ endfunction
 ///////////////////////////////////////////////////////////////////////////////
 // SRAM via fb_sram
 
-// Sweep settings in clk_ram cycles (9.3 ns), row k = setting k:
-//   k    0    1    2    3*   4    5    6    7      (* = normal-build default)
-//   rd   2    2    3    3    3    4    4    5      read capture 18.6 .. 46.6 ns
-//   we   1    2    1    2    3    2    3    4      WE low        9.3 .. 37.2 ns
-// Rows 0-2 probe below the default, 4-5 vary one parameter above it, 6-7 are known-good.
-localparam [31:0] SWEEP_RD = {4'd5, 4'd4, 4'd4, 4'd3, 4'd3, 4'd3, 4'd2, 4'd2};
-localparam [31:0] SWEEP_WE = {4'd4, 4'd3, 4'd2, 4'd3, 4'd2, 4'd1, 4'd2, 4'd1};
-assign cfg_rd = SWEEP_RD[sweep_cur*4 +: 4];
-assign cfg_we = SWEEP_WE[sweep_cur*4 +: 4];
+// Sweep settings, row k = setting k. rd/we in clk_ram cycles (9.3 ns); half = capture half a
+// cycle earlier; hold = MCLK cycles each request is held (the VDP holds 6).
+//   k     0    1    2    3*   4    5    6*   7*
+//   rd    3   3.5   4    4   4.5   5    4    4     read capture 27.9 .. 46.6 ns
+//   we    2    2    1    2    2    3    2    2     WE low 9.3 .. 27.9 ns
+//   hold 40   40   40   40   40   40    6    5
+// * = production timing (4/2). Row 0 is a known-failing control, 1 probes read margin, 2 write
+// margin; rows 6 and 7 run production timing with the VDP's real hold, and one cycle less.
+localparam [31:0] SWEEP_RD   = {4'd4, 4'd4, 4'd5, 4'd5, 4'd4, 4'd4, 4'd4, 4'd3};
+localparam  [7:0] SWEEP_HALF = 8'b0001_0010;
+localparam [31:0] SWEEP_WE   = {4'd2, 4'd2, 4'd3, 4'd2, 4'd2, 4'd1, 4'd2, 4'd2};
+localparam [47:0] SWEEP_HOLD = {6'd5, 6'd6, 6'd40, 6'd40, 6'd40, 6'd40, 6'd40, 6'd40};
+assign cfg_rd   = SWEEP_RD[sweep_cur*4 +: 4];
+assign cfg_we   = SWEEP_WE[sweep_cur*4 +: 4];
+assign cfg_half = SWEEP_HALF[sweep_cur];
+wire [5:0] hold = (HOLD != 6'd40) ? HOLD : SWEEP_HOLD[sweep_cur*6 +: 6];
 
 localparam S_WRITE = 2'd0, S_BYTES = 2'd1, S_READ = 2'd2;
 reg  [1:0] s_phase;
@@ -111,7 +119,7 @@ always @(posedge clk) begin
 
 		if (!s_busy) begin
 			s_busy <= 1;
-			s_cnt  <= HOLD;
+			s_cnt  <= hold;
 			case (s_phase)
 				S_WRITE, S_BYTES: begin
 					// S_WRITE: full words. S_BYTES: overwrite one byte lane with the next pass's
@@ -141,13 +149,14 @@ always @(posedge clk) begin
 				FB0_WE <= 0; FB1_WE <= 0;
 				if (FB_FS) FB0_RD <= 0; else FB1_RD <= 0;
 			end
-			if (s_cnt == 0) begin
+			// Reads are judged on this edge, `hold` cycles after the request, like the VDP (which
+			// takes FB data 6 cycles after raising FB_RD).
+			if (s_cnt == 1) begin
 				// Expected read data: S_BYTES replaced one lane with the next pass's pattern.
 				automatic logic [15:0] p0  = pattern(s_full, sram_passes);
 				automatic logic [15:0] p1  = pattern(s_full, sram_passes + 1'd1);
 				automatic logic [15:0] exp = s_addr[0] ? {p1[15:8], p0[7:0]} : {p0[15:8], p1[7:0]};
 				automatic logic        bad = (s_phase == S_READ) && ((FB_FS ? FB0_DI : FB1_DI) != exp);
-				s_busy <= 0;
 				if (bad) begin
 					sram_fail   <= 1;
 					s_pass_fail <= 1;
@@ -172,6 +181,7 @@ always @(posedge clk) begin
 					endcase
 				end
 			end
+			if (s_cnt == 0) s_busy <= 0;
 		end
 	end
 end

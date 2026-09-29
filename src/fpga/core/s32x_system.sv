@@ -330,6 +330,7 @@ wire [15:0] FB0_A, FB0_DO, FB0_DI, FB1_A, FB1_DO, FB1_DI;
 wire  [1:0] FB0_WE, FB1_WE;
 wire        FB0_RD, FB1_RD, FB_FS;
 wire  [3:0] fb_cfg_rd, fb_cfg_we;
+wire        fb_cfg_half;
 
 reg  [1:0] ram_reset_sync;
 always @(posedge clk_ram) ram_reset_sync <= {ram_reset_sync[0], ~pll_locked};
@@ -341,7 +342,7 @@ fb_sram fb_sram
 	.FB0_A(FB0_A), .FB0_DO(FB0_DO), .FB0_WE(FB0_WE), .FB0_RD(FB0_RD), .FB0_DI(FB0_DI),
 	.FB1_A(FB1_A), .FB1_DO(FB1_DO), .FB1_WE(FB1_WE), .FB1_RD(FB1_RD), .FB1_DI(FB1_DI),
 	.FB_FS(FB_FS),
-	.cfg_rd(fb_cfg_rd), .cfg_we(fb_cfg_we),
+	.cfg_rd(fb_cfg_rd), .cfg_we(fb_cfg_we), .cfg_half(fb_cfg_half),
 	.sram_a(SRAM_A), .sram_dq(SRAM_DQ), .sram_oe_n(SRAM_OE_N), .sram_we_n(SRAM_WE_N),
 	.sram_ub_n(SRAM_UB_N), .sram_lb_n(SRAM_LB_N)
 );
@@ -359,7 +360,7 @@ memtest memtest
 	.reset(reset),
 	.FB0_A(FB0_A), .FB0_DO(FB0_DO), .FB0_WE(FB0_WE), .FB0_RD(FB0_RD), .FB0_DI(FB0_DI),
 	.FB1_A(FB1_A), .FB1_DO(FB1_DO), .FB1_WE(FB1_WE), .FB1_RD(FB1_RD), .FB1_DI(FB1_DI),
-	.FB_FS(FB_FS), .cfg_rd(fb_cfg_rd), .cfg_we(fb_cfg_we),
+	.FB_FS(FB_FS), .cfg_rd(fb_cfg_rd), .cfg_we(fb_cfg_we), .cfg_half(fb_cfg_half),
 	.sdr_addr(s32x_sdr_addr), .sdr_rd(s32x_sdr_rd), .sdr_wr(s32x_sdr_wr), .sdr_din(s32x_sdr_din),
 	.sdr_dout(sdr_do[0]), .sdr_busy(sdr_busy[0]),
 	.sram_passes(), .sram_fail(),
@@ -369,8 +370,10 @@ memtest memtest
 `else
 assign {FB0_A, FB0_DO, FB0_WE, FB0_RD, FB1_A, FB1_DO, FB1_WE, FB1_RD} = '0;
 assign FB_FS = 1'b0;
-assign fb_cfg_rd = 4'd3;    // 28 ns read capture
-assign fb_cfg_we = 4'd2;    // 19 ns WE pulse
+// Production SRAM timing, from the hardware sweep: reads need more than 28 ns, 37 ns works.
+assign fb_cfg_rd   = 4'd4;    // 37 ns read capture
+assign fb_cfg_we   = 4'd2;    // 19 ns WE pulse
+assign fb_cfg_half = 1'b0;
 assign {s32x_sdr_addr, s32x_sdr_rd, s32x_sdr_wr, s32x_sdr_din} = '0;
 assign memtest_status = '0;
 `endif

@@ -9,17 +9,19 @@
 //   - draw buffer: FIFO writes hold A/D/WE for 6 MCLK, SH-2 reads hold RD and sample after
 //     6 MCLK, auto-fill holds WE for the whole ~7 MCLK step
 //
-// The state machine runs on clk_ram (2x clk_sys, same PLL). Requests are registered on clk_ram,
-// and a change between two consecutive samples (new address/data/strobe) sets a one-bit pending
-// flag per channel and operation, so the arbiter only looks at flags (short paths at 107 MHz).
-// One SRAM access at a time (default timing):
-//   read  = 4 clk_ram cycles (address, capture 3 cycles = 28 ns later in the I/O-cell register)
-//   write = 4 clk_ram cycles (address setup, WE low x2, hold)
-// Priority: draw buffer (write, then read) first, then a display read. The draw buffer comes
-// from the VDP's FS bit (patch 0004 exports it as FB_FS). A heuristic based on RD levels was
-// tried first and failed in simulation right after a buffer swap.
-// Worst-case latency: input register + change detect + access in progress + own access +
-// delivery, plus one draw access ahead of a display read. See sim/fb_sram for measured values.
+// The state machine runs on clk_ram (2x clk_sys, same PLL). Each clk_ram edge registers the
+// VDP's requests and, comparing the incoming values against the registered ones, sets a one-bit
+// pending flag per channel and operation for anything new. The arbiter only looks at the flags
+// (short paths at 107 MHz).
+// One SRAM access at a time. With the production timing (cfg_rd = 4, cfg_we = 2, from the
+// hardware sweep: the Pocket's SRAM needs more than 28 ns for reads, 37 ns works):
+//   read  = address, capture cfg_rd cycles later in the I/O-cell register; the next access can
+//           start on the capture edge
+//   write = address setup, WE low for cfg_we cycles, one hold cycle
+// Priority: draw buffer (write, then read) first, then a display read. A draw request aborts a
+// display read in progress (async SRAM reads can simply be abandoned; it is re-issued after).
+// The draw buffer comes from the VDP's FS bit (patch 0004 exports it as FB_FS); a heuristic based
+// on RD levels failed in simulation right after a buffer swap. Measured latencies: sim/fb_sram.
 //
 
 module fb_sram
@@ -44,6 +46,8 @@ module fb_sram
 	// analysed above. The MEMTEST sweep varies them to find what the Pocket's SRAM needs.
 	input       [3:0] cfg_rd,         // read: capture this many cycles after the address (>= 1)
 	input       [3:0] cfg_we,         // write: WE low for this many cycles (>= 1)
+	input             cfg_half,       // memtest margin probe: capture half a cycle earlier
+	                                  // (falling edge, fabric register). Production: 0.
 
 	// Async SRAM pins
 	output reg [16:0] sram_a,
@@ -54,34 +58,38 @@ module fb_sram
 	output reg        sram_lb_n
 );
 
-// Requests from the clk_sys domain: two stages of clk_ram registers. Stage 1 (ch_*) is a plain
-// clock-domain register; stage 2 (p_*) is the previous sample, for change detection.
-reg [15:0] ch_a [2], p_a [2];
-reg [15:0] ch_d [2], p_d [2];
-reg  [1:0] ch_we[2], p_we[2];
-reg        ch_rd[2], p_rd[2];
+// Requests from the clk_sys domain, registered on clk_ram. New-request events compare the
+// incoming values with the registered ones, so a request's flag is set on the same edge that
+// registers it. A held write (VDP FIFO: 6 MCLK, fill: whole step) is one request until its
+// address, data or byte enables change; a held read is one request until its address changes.
+wire [15:0] in_a [2] = '{FB0_A,  FB1_A};
+wire [15:0] in_d [2] = '{FB0_DO, FB1_DO};
+wire  [1:0] in_we[2] = '{FB0_WE, FB1_WE};
+wire        in_rd[2] = '{FB0_RD, FB1_RD};
+
+reg [15:0] ch_a [2];
+reg [15:0] ch_d [2];
+reg  [1:0] ch_we[2];
+reg        ch_rd[2];
 reg        fs_r;
-always @(posedge clk_ram) begin
-	ch_a[0] <= FB0_A;  ch_d[0] <= FB0_DO; ch_we[0] <= FB0_WE; ch_rd[0] <= FB0_RD;
-	ch_a[1] <= FB1_A;  ch_d[1] <= FB1_DO; ch_we[1] <= FB1_WE; ch_rd[1] <= FB1_RD;
-	fs_r <= FB_FS;
-	for (int c = 0; c < 2; c++) begin
-		p_a[c] <= ch_a[c]; p_d[c] <= ch_d[c]; p_we[c] <= ch_we[c]; p_rd[c] <= ch_rd[c];
-	end
-end
 
-wire draw_ch = ~fs_r;
-
-// New-request events. A held write (VDP FIFO: 6 MCLK, fill: whole step) is one request until its
-// address, data or byte enables change; a held read until its address changes.
 wire wr_evt[2], rd_evt[2];
 genvar c;
 generate for (c = 0; c < 2; c++) begin : evt
-	assign wr_evt[c] = (ch_we[c] != 2'b00) &&
-	                   (p_we[c] == 2'b00 || ch_we[c] != p_we[c] || ch_a[c] != p_a[c] || ch_d[c] != p_d[c]);
-	assign rd_evt[c] = ch_rd[c] && (ch_we[c] == 2'b00) &&
-	                   (!p_rd[c] || p_we[c] != 2'b00 || ch_a[c] != p_a[c]);
+	assign wr_evt[c] = (in_we[c] != 2'b00) &&
+	                   (ch_we[c] == 2'b00 || in_we[c] != ch_we[c] || in_a[c] != ch_a[c] || in_d[c] != ch_d[c]);
+	assign rd_evt[c] = in_rd[c] && (in_we[c] == 2'b00) &&
+	                   (!ch_rd[c] || ch_we[c] != 2'b00 || in_a[c] != ch_a[c]);
 end endgenerate
+
+always @(posedge clk_ram) begin
+	for (int i = 0; i < 2; i++) begin
+		ch_a[i] <= in_a[i]; ch_d[i] <= in_d[i]; ch_we[i] <= in_we[i]; ch_rd[i] <= in_rd[i];
+	end
+	fs_r <= FB_FS;
+end
+
+wire draw_ch = ~fs_r;
 
 reg wr_pend[2], rd_pend[2];
 
@@ -103,6 +111,11 @@ reg        xfer;
 reg        xfer_ch;
 always @(posedge clk_ram) rd_q <= sram_dq;
 
+// Margin probe (cfg_half): a falling-edge sample, taken half a cycle before the capture edge.
+reg [15:0] rd_qn, rd_half;
+reg        xfer_half;
+always @(negedge clk_ram) rd_qn <= sram_dq;
+
 genvar gi;
 generate for (gi = 0; gi < 16; gi++) begin : dq_pins
 	assign sram_dq[gi] = dq_oe[gi] ? dq_out[gi] : 1'bZ;
@@ -116,6 +129,12 @@ wire wr_ch   = wr_pend[dc] ? dc : pc;
 wire do_rd   = rd_pend[dc] || rd_pend[pc];
 wire rd_ch   = rd_pend[dc] ? dc : pc;
 
+// When a new access may start: from idle, on a read's capture edge (the data is already in rd_q
+// and the address may change afterwards), or by aborting a display read for a draw request.
+wire rd_done  = (state == ST_RD) && (cnt == 0);
+wire rd_abort = (state == ST_RD) && (cnt != 0) && (op_ch != dc) && (wr_pend[dc] || rd_pend[dc]);
+wire can_start = (state == ST_IDLE) || rd_done || rd_abort;
+
 always @(posedge clk_ram) begin
 	if (reset) begin
 		state     <= ST_IDLE;
@@ -125,63 +144,70 @@ always @(posedge clk_ram) begin
 		sram_lb_n <= 1;
 		dq_oe     <= '0;
 		xfer      <= 0;
-		for (int c = 0; c < 2; c++) begin
-			wr_pend[c] <= 0;
-			rd_pend[c] <= 0;
+		for (int i = 0; i < 2; i++) begin
+			wr_pend[i] <= 0;
+			rd_pend[i] <= 0;
 		end
 	end
 	else begin
 		// Deliver the previous read: rd_q holds the bus as sampled at its capture edge.
 		xfer <= 0;
 		if (xfer) begin
-			if (xfer_ch) FB1_DI <= rd_q; else FB0_DI <= rd_q;
+			if (xfer_ch) FB1_DI <= xfer_half ? rd_half : rd_q;
+			else         FB0_DI <= xfer_half ? rd_half : rd_q;
 		end
 
-		// New requests set their flag; issuing an access clears it (below, later assignment wins
-		// only for the channel being issued, and a same-cycle event is the request being issued).
-		for (int c = 0; c < 2; c++) begin
-			if (wr_evt[c]) wr_pend[c] <= 1;
-			if (rd_evt[c]) rd_pend[c] <= 1;
-			if (ch_we[c] == 2'b00) wr_pend[c] <= 0;      // write withdrawn
-			if (!ch_rd[c] || ch_we[c] != 2'b00) rd_pend[c] <= 0;
+		// New requests set their flag; a withdrawn strobe clears it. Issuing an access clears the
+		// flag of the request issued, unless a newer request arrives on the same edge.
+		for (int i = 0; i < 2; i++) begin
+			if (wr_evt[i]) wr_pend[i] <= 1;
+			if (rd_evt[i]) rd_pend[i] <= 1;
+			if (in_we[i] == 2'b00) wr_pend[i] <= 0;
+			if (!in_rd[i] || in_we[i] != 2'b00) rd_pend[i] <= 0;
 		end
 
-		case (state)
+		// Finishing or abandoning a read
+		if (rd_done) begin
+			xfer      <= 1;
+			xfer_ch   <= op_ch;
+			xfer_half <= cfg_half;
+			rd_half   <= rd_qn;                   // sampled half a cycle before this edge
+		end
+		if (rd_abort && !rd_evt[op_ch] && in_rd[op_ch] && in_we[op_ch] == 2'b00)
+			rd_pend[op_ch] <= 1;                  // re-issue the abandoned display read later
+
+		if (state == ST_RD && !rd_done && !rd_abort) cnt <= cnt - 1'd1;
+
+		if (can_start && do_wr) begin
+			op_ch       <= wr_ch;
+			sram_a      <= {wr_ch, ch_a[wr_ch]};
+			dq_out      <= ch_d[wr_ch];
+			sram_ub_n   <= ~ch_we[wr_ch][1];
+			sram_lb_n   <= ~ch_we[wr_ch][0];
+			sram_oe_n   <= 1;
+			sram_we_n   <= 1;
+			dq_oe       <= '0;
+			if (!wr_evt[wr_ch]) wr_pend[wr_ch] <= 0;
+			state       <= ST_WR1;
+		end
+		else if (can_start && do_rd) begin
+			op_ch     <= rd_ch;
+			sram_a    <= {rd_ch, ch_a[rd_ch]};
+			sram_ub_n <= 0;
+			sram_lb_n <= 0;
+			sram_oe_n <= 0;
+			sram_we_n <= 1;
+			dq_oe     <= '0;
+			if (!rd_evt[rd_ch]) rd_pend[rd_ch] <= 0;
+			cnt       <= cfg_rd - 1'd1;
+			state     <= ST_RD;
+		end
+		else case (state)
 			ST_IDLE: begin
 				sram_we_n <= 1;
 				dq_oe     <= '0;
-				if (do_wr) begin
-					op_ch       <= wr_ch;
-					sram_a      <= {wr_ch, ch_a[wr_ch]};
-					dq_out      <= ch_d[wr_ch];
-					sram_ub_n   <= ~ch_we[wr_ch][1];
-					sram_lb_n   <= ~ch_we[wr_ch][0];
-					sram_oe_n   <= 1;
-					if (!wr_evt[wr_ch]) wr_pend[wr_ch] <= 0;
-					state       <= ST_WR1;
-				end
-				else if (do_rd) begin
-					op_ch     <= rd_ch;
-					sram_a    <= {rd_ch, ch_a[rd_ch]};
-					sram_ub_n <= 0;
-					sram_lb_n <= 0;
-					sram_oe_n <= 0;
-					if (!rd_evt[rd_ch]) rd_pend[rd_ch] <= 0;
-					cnt       <= cfg_rd - 1'd1;
-					state     <= ST_RD;
-				end
 			end
-
-			ST_RD: begin
-				// rd_q samples the bus cfg_rd cycles after the address was launched (3 = 28 ns);
-				// it is delivered on the next cycle (xfer), while the next access may start.
-				if (cnt != 0) cnt <= cnt - 1'd1;
-				else begin
-					xfer    <= 1;
-					xfer_ch <= op_ch;
-					state   <= ST_IDLE;
-				end
-			end
+			ST_RD: if (rd_done || rd_abort) state <= ST_IDLE;
 
 			// Write: setup cycle with OE high and DQ still released (bus turnaround),
 			// then WE low for cfg_we cycles with data driven, then a hold cycle (in ST_IDLE).
@@ -196,7 +222,7 @@ always @(posedge clk_ram) begin
 				else begin
 					sram_we_n <= 1;
 					// A channel that reads what it just wrote must re-read.
-					if (ch_rd[op_ch] && ch_we[op_ch] == 2'b00) rd_pend[op_ch] <= 1;
+					if (in_rd[op_ch] && in_we[op_ch] == 2'b00) rd_pend[op_ch] <= 1;
 					state <= ST_IDLE;
 				end
 			end

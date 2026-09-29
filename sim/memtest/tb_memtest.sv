@@ -30,15 +30,16 @@ reg         sdr_busy = 0;
 wire [15:0] sram_passes, sdram_passes;
 wire        sram_fail, sdram_fail;
 wire  [3:0] cfg_rd, cfg_we;
+wire        cfg_half;
 wire  [7:0] sweep_done, sweep_fail;
 wire  [2:0] sweep_cur;
 
 // Small region and short hold so a full 8-setting sweep simulates in reasonable time.
-memtest #(.AW(8), .HOLD(6'd40)) mt (
+memtest #(.AW(8)) mt (
 	.clk(clk_sys), .reset(reset),
 	.FB0_A(FB0_A), .FB0_DO(FB0_DO), .FB0_WE(FB0_WE), .FB0_RD(FB0_RD), .FB0_DI(FB0_DI),
 	.FB1_A(FB1_A), .FB1_DO(FB1_DO), .FB1_WE(FB1_WE), .FB1_RD(FB1_RD), .FB1_DI(FB1_DI),
-	.FB_FS(FB_FS), .cfg_rd(cfg_rd), .cfg_we(cfg_we),
+	.FB_FS(FB_FS), .cfg_rd(cfg_rd), .cfg_we(cfg_we), .cfg_half(cfg_half),
 	.sdr_addr(sdr_addr), .sdr_rd(sdr_rd), .sdr_wr(sdr_wr), .sdr_din(sdr_din),
 	.sdr_dout(sdr_dout), .sdr_busy(sdr_busy),
 	.sram_passes(sram_passes), .sram_fail(sram_fail),
@@ -50,7 +51,7 @@ fb_sram fb (
 	.clk_ram(clk_ram), .reset(reset),
 	.FB0_A(FB0_A), .FB0_DO(FB0_DO), .FB0_WE(FB0_WE), .FB0_RD(FB0_RD), .FB0_DI(FB0_DI),
 	.FB1_A(FB1_A), .FB1_DO(FB1_DO), .FB1_WE(FB1_WE), .FB1_RD(FB1_RD), .FB1_DI(FB1_DI),
-	.FB_FS(FB_FS), .cfg_rd(cfg_rd), .cfg_we(cfg_we),
+	.FB_FS(FB_FS), .cfg_rd(cfg_rd), .cfg_we(cfg_we), .cfg_half(cfg_half),
 	.sram_a(sram_a), .sram_dq(sram_dq), .sram_oe_n(sram_oe_n), .sram_we_n(sram_we_n),
 	.sram_ub_n(sram_ub_n), .sram_lb_n(sram_lb_n)
 );

@@ -24,7 +24,7 @@ wire [15:0] sdram_passes; wire sdram_fail;
 memtest mt (
 	.clk(clk_sys), .reset(reset),
 	.FB0_A(), .FB0_DO(), .FB0_WE(), .FB0_RD(), .FB0_DI(16'd0),
-	.FB1_A(), .FB1_DO(), .FB1_WE(), .FB1_RD(), .FB1_DI(16'd0), .FB_FS(),
+	.FB1_A(), .FB1_DO(), .FB1_WE(), .FB1_RD(), .FB1_DI(16'd0), .FB_FS(), .cfg_rd(), .cfg_we(), .cfg_half(),
 	.sdr_addr(sdr_addr), .sdr_rd(sdr_rd), .sdr_wr(sdr_wr), .sdr_din(sdr_din),
 	.sdr_dout(dout0), .sdr_busy(busy0),
 	.sram_passes(), .sram_fail(), .sdram_passes(sdram_passes), .sdram_fail(sdram_fail)

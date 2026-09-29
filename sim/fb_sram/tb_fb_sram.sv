@@ -19,6 +19,13 @@ localparam int  CYCLES = 2000000; // clk_sys cycles to simulate
 `define MARGIN 0
 `endif
 localparam int  MARGIN = `MARGIN;
+// Controller access timing under test (clk_ram cycles); defaults = production setting.
+`ifndef CFG_RD
+`define CFG_RD 4
+`endif
+`ifndef CFG_WE
+`define CFG_WE 2
+`endif
 
 reg clk_sys = 0, clk_ram = 0;
 always #(T_SYS/2) clk_sys = ~clk_sys;
@@ -42,7 +49,7 @@ fb_sram dut (
 	.clk_ram(clk_ram), .reset(reset),
 	.FB0_A(FB_A[0]), .FB0_DO(FB_DO[0]), .FB0_WE(FB_WE[0]), .FB0_RD(FB_RD[0]), .FB0_DI(FB0_DI),
 	.FB1_A(FB_A[1]), .FB1_DO(FB_DO[1]), .FB1_WE(FB_WE[1]), .FB1_RD(FB_RD[1]), .FB1_DI(FB1_DI),
-	.FB_FS(fs_q), .cfg_rd(4'd3), .cfg_we(4'd2),
+	.FB_FS(fs_q), .cfg_rd(4'(`CFG_RD)), .cfg_we(4'(`CFG_WE)), .cfg_half(1'b0),
 	.sram_a(sram_a), .sram_dq(sram_dq), .sram_oe_n(sram_oe_n), .sram_we_n(sram_we_n),
 	.sram_ub_n(sram_ub_n), .sram_lb_n(sram_lb_n)
 );
