@@ -1,0 +1,87 @@
+--- a/rtl/sdram.sv
++++ b/rtl/sdram.sv
+@@ -37,6 +37,7 @@
+ 	// cpu/chipset interface
+ 	input             init,			// init signal after FPGA config to initialize RAM
+ 	input             clk,			// sdram is accessed at up to 128MHz
++	input             mid,			// Pocket: clk edge in mid clk_sys cycle (requests come from clk_sys = clk/2)
+ 
+ 	input      [24:1] addr0,
+ 	input             rd0,
+@@ -110,18 +111,26 @@
+ always @(posedge clk) begin
+ 	reg  [9:0] rfs_timer = 0;
+ 	reg  [3:0] old_rd, old_wr;
++	reg  [3:0] rd_q, wr_q;			// Pocket: rd/wr as of the latest mid edge
+ 	reg [15:0] dout;
+ 	reg        data_out = 0;
+ 
+-	old_rd <= old_rd & rd;
+-	old_wr <= old_wr & wr;
++	// Pocket: requests come from the clk_sys domain (half this clock) and are sampled only on the
++	// edge in mid clk_sys cycle; the edge coinciding with clk_sys would only re-sample them under a
++	// zero-margin hold check (see core_constraints.sdc).
++	if (mid) begin
++		rd_q <= rd;
++		wr_q <= wr;
++		old_rd <= old_rd & rd;
++		old_wr <= old_wr & wr;
++	end
+ 
+ 	if(rfs_timer) rfs_timer <= rfs_timer - 1'd1;
+ 	
+-	if ((~old_rd[0] && rd[0]) || (~old_wr[0] && wr[0])) begin ch_req[0] <= 1; ch_pend[0] <= 1; ch_addr[0] <= addr0; ch_din[0] <= din0; ch_wr[0] <= wr0; end
+-	if ((~old_rd[1] && rd[1]) || (~old_wr[1] && wr[1])) begin ch_req[1] <= 1; ch_pend[1] <= 1; ch_addr[1] <= addr1; ch_din[1] <= din1; ch_wr[1] <= wr1; end
+-	if ((~old_rd[2] && rd[2]) || (~old_wr[2] && wr[2])) begin ch_req[2] <= 1; ch_pend[2] <= 1; ch_addr[2] <= addr2; ch_din[2] <= din2; ch_wr[2] <= wr2; end
+-	if ((~old_rd[3] && rd[3]) || (~old_wr[3] && wr[3])) begin ch_req[3] <= 1; ch_pend[3] <= 1; ch_addr[3] <= addr3; ch_din[3] <= din3; ch_wr[3] <= wr3; end
++	if (mid && ((~old_rd[0] && rd[0]) || (~old_wr[0] && wr[0]))) begin ch_req[0] <= 1; ch_pend[0] <= 1; ch_addr[0] <= addr0; ch_din[0] <= din0; ch_wr[0] <= wr0; end
++	if (mid && ((~old_rd[1] && rd[1]) || (~old_wr[1] && wr[1]))) begin ch_req[1] <= 1; ch_pend[1] <= 1; ch_addr[1] <= addr1; ch_din[1] <= din1; ch_wr[1] <= wr1; end
++	if (mid && ((~old_rd[2] && rd[2]) || (~old_wr[2] && wr[2]))) begin ch_req[2] <= 1; ch_pend[2] <= 1; ch_addr[2] <= addr2; ch_din[2] <= din2; ch_wr[2] <= wr2; end
++	if (mid && ((~old_rd[3] && rd[3]) || (~old_wr[3] && wr[3]))) begin ch_req[3] <= 1; ch_pend[3] <= 1; ch_addr[3] <= addr3; ch_din[3] <= din3; ch_wr[3] <= wr3; end
+ 
+ 	if(state == STATE_IDLE && mode == MODE_NORMAL) begin
+ 		if (!rfs_timer) begin
+@@ -132,8 +141,8 @@
+ 			state <= STATE_START;
+ 		end
+ 		else if (ch_pend[0]) begin
+-			old_rd[0] <= rd[0];
+-			old_wr[0] <= wr[0];
++			old_rd[0] <= rd_q[0];
++			old_wr[0] <= wr_q[0];
+ 			{ba, a} <= ch_addr[0];
+ 			data <= ch_din[0];
+ 			we <= |ch_wr[0];
+@@ -144,8 +153,8 @@
+ 			ch_n <= 0; 
+ 		end
+ 		else if (ch_pend[1]) begin
+-			old_rd[1] <= rd[1];
+-			old_wr[1] <= wr[1];
++			old_rd[1] <= rd_q[1];
++			old_wr[1] <= wr_q[1];
+ 			{ba, a} <= ch_addr[1];
+ 			data <= ch_din[1];
+ 			we <= |ch_wr[1];
+@@ -156,8 +165,8 @@
+ 			ch_n <= 1; 
+ 		end
+ 		else if (ch_pend[2]) begin
+-			old_rd[2] <= rd[2];
+-			old_wr[2] <= wr[2];
++			old_rd[2] <= rd_q[2];
++			old_wr[2] <= wr_q[2];
+ 			{ba, a} <= ch_addr[2];
+ 			data <= ch_din[2];
+ 			we <= |ch_wr[2];
+@@ -168,8 +177,8 @@
+ 			ch_n <= 2; 
+ 		end
+ 		else if (ch_pend[3]) begin
+-			old_rd[3] <= rd[3];
+-			old_wr[3] <= wr[3];
++			old_rd[3] <= rd_q[3];
++			old_wr[3] <= wr_q[3];
+ 			{ba, a} <= ch_addr[3];
+ 			data <= ch_din[3];
+ 			we <= |ch_wr[3];

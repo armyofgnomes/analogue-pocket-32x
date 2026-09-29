@@ -169,7 +169,8 @@ With these fixes, 30 frames of random traffic in every bitmap mode (H40, several
 match exactly. The same build also moved `fb_sram`'s request sampling to the clk_ram edge in mid clk_sys
 cycle only (the edge coinciding with the clk_sys edge re-sampled old values under a zero-margin
 hold check, which failed by 5 ps in the fast corner). `sim/fb_sram` worst latencies are now
-SH-2 read 4.25/6 MCLK and display 6.25/8. The earlier 3.75/5.75 figures came from the bench
+SH-2 read 4.25/6 MCLK and display 6.25/8. Patch 0007 does the same for `sdram.sv`'s four request
+ports, whose clk_sys → clk_ram hold failed by 0.36 ns in one placement. The earlier 3.75/5.75 figures came from the bench
 driving requests at the clock edge, which let the coincident edge see them too early.
 
 ### Logic budget

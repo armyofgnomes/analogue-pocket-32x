@@ -30,11 +30,18 @@ memtest mt (
 	.sram_passes(), .sram_fail(), .sdram_passes(sdram_passes), .sdram_fail(sdram_fail)
 );
 
+// Mid clk_ram edge in the clk_sys cycle, as generated in s32x_system.sv
+reg sys_tog = 0, ram_tog_n = 0, ram_tog_p = 0;
+always @(posedge clk_sys) sys_tog <= ~sys_tog;
+always @(negedge clk_ram) ram_tog_n <= sys_tog;
+always @(posedge clk_ram) ram_tog_p <= ram_tog_n;
+wire ram_mid = ram_tog_n ^ ram_tog_p;
+
 sdram sdram (
 	.SDRAM_DQ(SDRAM_DQ), .SDRAM_A(SDRAM_A), .SDRAM_DQML(SDRAM_DQML), .SDRAM_DQMH(SDRAM_DQMH),
 	.SDRAM_BA(SDRAM_BA), .SDRAM_nCS(), .SDRAM_nWE(SDRAM_nWE), .SDRAM_nRAS(SDRAM_nRAS),
 	.SDRAM_nCAS(SDRAM_nCAS), .SDRAM_CLK(SDRAM_CLK), .SDRAM_CKE(SDRAM_CKE),
-	.init(init), .clk(clk_ram),
+	.init(init), .clk(clk_ram), .mid(ram_mid),
 	.addr0(sdr_addr), .rd0(sdr_rd), .wr0(sdr_wr), .din0(sdr_din), .dout0(dout0), .busy0(busy0),
 	.addr1(rom_addr), .rd1(rom_rd), .wr1(2'b00), .din1(16'd0), .dout1(dout1), .busy1(busy1),
 	.addr2(24'd0), .rd2(1'b0), .wr2(2'b00), .din2(16'd0), .dout2(), .busy2(),

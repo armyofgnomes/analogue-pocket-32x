@@ -548,17 +548,13 @@ CART cart
 reg  [1:0] ram_reset_sync;
 always @(posedge clk_ram) ram_reset_sync <= {ram_reset_sync[0], ~pll_locked};
 
-// Toggles every clk_sys cycle: fb_sram uses it to find the clk_ram edge in mid clk_sys cycle
-reg fb_sys_tog = 0;
-always @(posedge clk_sys) fb_sys_tog <= ~fb_sys_tog;
-
 fb_sram fb_sram
 (
 	.clk_ram(clk_ram),
 	.reset(ram_reset_sync[1]),
 	.FB0_A(FB0_A), .FB0_DO(FB0_DO), .FB0_WE(FB0_WE), .FB0_RD(FB0_RD), .FB0_DI(FB0_DI),
 	.FB1_A(FB1_A), .FB1_DO(FB1_DO), .FB1_WE(FB1_WE), .FB1_RD(FB1_RD), .FB1_DI(FB1_DI),
-	.FB_FS(FB_FS), .sys_tog(fb_sys_tog),
+	.FB_FS(FB_FS), .sys_tog(sys_tog),
 	.cfg_rd(fb_cfg_rd), .cfg_we(fb_cfg_we), .cfg_half(fb_cfg_half),
 	.sram_a(SRAM_A), .sram_dq(SRAM_DQ), .sram_oe_n(SRAM_OE_N), .sram_we_n(SRAM_WE_N),
 	.sram_ub_n(SRAM_UB_N), .sram_lb_n(SRAM_LB_N)
@@ -592,6 +588,19 @@ assign memtest_status = '0;
 //   0x1000000-0x103FFFF  32X SDRAM (port 0)
 //   0x1800000-0x180FFFF  cart save RAM (port 2)
 
+// clk_ram (2x clk_sys, same PLL) samples clk_sys-domain requests only on the edge in mid clk_sys
+// cycle; the other edge coincides with the launching clk_sys edge and would re-sample the same
+// values under a zero-margin hold check (core_constraints.sdc). sys_tog toggles every clk_sys
+// cycle; sampled on the falling clk_ram edge (a quarter clk_sys cycle of margin both ways) it has
+// changed since the previous rising clk_ram edge exactly on the mid edges. fb_sram derives the
+// same from sys_tog on its own.
+reg sys_tog = 0;
+always @(posedge clk_sys) sys_tog <= ~sys_tog;
+reg ram_tog_n = 0, ram_tog_p = 0;
+always @(negedge clk_ram) ram_tog_n <= sys_tog;
+always @(posedge clk_ram) ram_tog_p <= ram_tog_n;
+wire ram_mid = ram_tog_n ^ ram_tog_p;
+
 sdram sdram
 (
 	.SDRAM_DQ(SDRAM_DQ),
@@ -608,6 +617,7 @@ sdram sdram
 
 	.init(~pll_locked),
 	.clk(clk_ram),
+	.mid(ram_mid),
 
 	.addr0(s32x_sdr_addr),
 	.rd0(s32x_sdr_rd),

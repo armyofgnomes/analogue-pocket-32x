@@ -27,3 +27,9 @@ set_multicycle_path -from {ic|system|sdram|*} -to {ic|system|S32X|s32x_if|*} -st
 set fb_sram_req_regs {ic|system|fb_sram|ch_* ic|system|fb_sram|fs_r ic|system|fb_sram|wr_pend* ic|system|fb_sram|rd_pend*}
 set_multicycle_path -from [get_clocks {ic|mp1|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk}] \
  -to $fb_sram_req_regs -end -hold 1
+
+# sdram.sv (patch 0007) does the same for its request inputs, on the mid edge that
+# s32x_system.sv derives (ram_mid).
+set sdram_req_regs {ic|system|sdram|ch_addr* ic|system|sdram|ch_din* ic|system|sdram|ch_wr* ic|system|sdram|ch_req* ic|system|sdram|ch_pend* ic|system|sdram|old_rd* ic|system|sdram|old_wr* ic|system|sdram|rd_q* ic|system|sdram|wr_q*}
+set_multicycle_path -from [get_clocks {ic|mp1|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk}] \
+ -to $sdram_req_regs -end -hold 1

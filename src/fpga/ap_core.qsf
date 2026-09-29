@@ -787,6 +787,7 @@ set_instance_assignment -name FAST_OUTPUT_ENABLE_REGISTER ON -to sram_dq[*]
 set_instance_assignment -name FAST_INPUT_REGISTER ON -to sram_dq[*]
 # Keep fb_sram's clock-crossing input registers where they are (retiming moved them and broke hold)
 set_instance_assignment -name PHYSICAL_SYNTHESIS_REGISTER_RETIMING OFF -to "core_top:ic|s32x_system:system|fb_sram:fb_sram"
+set_instance_assignment -name PHYSICAL_SYNTHESIS_REGISTER_RETIMING OFF -to "core_top:ic|s32x_system:system|sdram:sdram"
 set_global_assignment -name SIGNALTAP_FILE core/stp1.stp
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to bridge_1wire
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to bridge_spiclk
