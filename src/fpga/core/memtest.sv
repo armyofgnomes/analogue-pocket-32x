@@ -68,9 +68,13 @@ endfunction
 ///////////////////////////////////////////////////////////////////////////////
 // SRAM via fb_sram
 
-// Sweep settings in clk_ram cycles (9.3 ns): read capture 28..140 ns, WE low 19..130 ns.
-localparam [31:0] SWEEP_RD = {4'd15, 4'd11, 4'd8, 4'd7, 4'd6, 4'd5, 4'd4, 4'd3};
-localparam [31:0] SWEEP_WE = {4'd14, 4'd9,  4'd7, 4'd6, 4'd5, 4'd4, 4'd3, 4'd2};
+// Sweep settings in clk_ram cycles (9.3 ns), row k = setting k:
+//   k    0    1    2    3*   4    5    6    7      (* = normal-build default)
+//   rd   2    2    3    3    3    4    4    5      read capture 18.6 .. 46.6 ns
+//   we   1    2    1    2    3    2    3    4      WE low        9.3 .. 37.2 ns
+// Rows 0-2 probe below the default, 4-5 vary one parameter above it, 6-7 are known-good.
+localparam [31:0] SWEEP_RD = {4'd5, 4'd4, 4'd4, 4'd3, 4'd3, 4'd3, 4'd2, 4'd2};
+localparam [31:0] SWEEP_WE = {4'd4, 4'd3, 4'd2, 4'd3, 4'd2, 4'd1, 4'd2, 4'd1};
 assign cfg_rd = SWEEP_RD[sweep_cur*4 +: 4];
 assign cfg_we = SWEEP_WE[sweep_cur*4 +: 4];
 

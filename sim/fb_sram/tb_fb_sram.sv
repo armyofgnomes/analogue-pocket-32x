@@ -72,7 +72,7 @@ always @(posedge sram_we_n) if (we_fall >= 0) begin
 	if (a_change > we_fall - 5.0) begin
 		$display("%t ERROR: address changed %0.1f ns before/while WE low", $realtime, we_fall - a_change); errors++;
 	end
-	if ($realtime - d_change < 8.0 || !dut.dq_oe) begin
+	if ($realtime - d_change < 8.0 || dut.dq_oe != 16'hFFFF) begin
 		$display("%t ERROR: write data setup %0.1f ns or not driven", $realtime, $realtime - d_change); errors++;
 	end
 	if (!sram_ub_n) mem[sram_a][15:8] = sram_dq[15:8];
@@ -84,7 +84,7 @@ always @(posedge sram_we_n) we_rise = $realtime;
 always @(sram_a) if (we_rise >= 0 && $realtime - we_rise < 5.0) begin
 	$display("%t ERROR: address hold %0.1f ns after WE rise", $realtime, $realtime - we_rise); errors++;
 end
-always @(posedge clk_ram) if (dut.dq_oe && sram_drive) begin
+always @(posedge clk_ram) if (|dut.dq_oe && sram_drive) begin
 	$display("%t ERROR: bus contention (FPGA and SRAM both driving)", $realtime); errors++;
 end
 
@@ -131,7 +131,7 @@ realtime t_rd_req = -1, t_disp_req = -1;
 real     max_rd_lat = 0, max_disp_lat = 0;
 string   max_rd_ctx;
 always @(posedge clk_ram) if (dut.state == 3'd1 && dut.cnt == 0) begin   // ST_RD, capture this edge
-	if (dstate == D_READ && t_rd_req >= 0 && dut.op_ch == draw_ch[0] && dut.op_a == rd_addr) begin
+	if (dstate == D_READ && t_rd_req >= 0 && dut.op_ch == draw_ch[0] && dut.sram_a[15:0] == rd_addr) begin
 		automatic real lat = ($realtime - t_rd_req) / T_SYS;
 		if (lat > max_rd_lat) begin
 			max_rd_lat = lat;
@@ -139,7 +139,7 @@ always @(posedge clk_ram) if (dut.state == 3'd1 && dut.cnt == 0) begin   // ST_R
 		end
 		t_rd_req = -1;
 	end
-	if (t_disp_req >= 0 && dut.op_ch == disp_ch[0] && dut.op_a == disp_a_prev) begin
+	if (t_disp_req >= 0 && dut.op_ch == disp_ch[0] && dut.sram_a[15:0] == disp_a_prev) begin
 		automatic real lat = ($realtime - t_disp_req) / T_SYS;
 		if (lat > max_disp_lat) max_disp_lat = lat;
 		t_disp_req = -1;
@@ -150,8 +150,8 @@ end
 task automatic check_write(input string what, input int ch, input bit [15:0] a);
 	bit [16:0] sa = {ch[0], a};
 	if (mem[sa] !== shadow[sa]) begin
-		$display("%t ERROR: %s FB%0d[%04h] not written by deadline: sram %04h expected %04h (st=%0d draw_ch=%b wr_done=%b)",
-		         $realtime, what, ch, a, mem[sa], shadow[sa], dut.state, dut.draw_ch, dut.wr_done[ch]);
+		$display("%t ERROR: %s FB%0d[%04h] not written by deadline: sram %04h expected %04h (st=%0d draw_ch=%b wr_pend=%b)",
+		         $realtime, what, ch, a, mem[sa], shadow[sa], dut.state, dut.draw_ch, dut.wr_pend[ch]);
 		errors++;
 	end
 endtask

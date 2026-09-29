@@ -634,8 +634,7 @@ s32x_system system (
 );
 
 // Memory self-test overlay (MEMTEST builds), over the Genesis picture:
-//   Rows y = 8 + 10k (k = 0..7, 8 px tall): SRAM timing setting k, fastest (k=0, 28 ns read /
-//   19 ns write) at the top to slowest (k=7, 140 / 130 ns) at the bottom.
+//   Rows y = 8 + 10k (k = 0..7, 8 px tall): SRAM timing setting k (table in memtest.sv).
 //   Red = failed at least once, green = passed, yellow = not run yet. A white block at the left
 //   edge marks the setting being tested now.
 //   Rows 96-111: 32X SDRAM region. Red = failure, green bar length = passes (mod 256), yellow =

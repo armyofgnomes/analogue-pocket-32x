@@ -9,16 +9,17 @@
 //   - draw buffer: FIFO writes hold A/D/WE for 6 MCLK, SH-2 reads hold RD and sample after
 //     6 MCLK, auto-fill holds WE for the whole ~7 MCLK step
 //
-// The state machine runs on clk_ram (2x clk_sys, same PLL) and samples the clk_sys-domain
-// requests directly, like upstream sdram.sv. One SRAM access at a time:
-//   read  = 4 clk_ram cycles (address, then capture 3 cycles = 28 ns later)
+// The state machine runs on clk_ram (2x clk_sys, same PLL). Requests are registered on clk_ram,
+// and a change between two consecutive samples (new address/data/strobe) sets a one-bit pending
+// flag per channel and operation, so the arbiter only looks at flags (short paths at 107 MHz).
+// One SRAM access at a time (default timing):
+//   read  = 4 clk_ram cycles (address, capture 3 cycles = 28 ns later in the I/O-cell register)
 //   write = 4 clk_ram cycles (address setup, WE low x2, hold)
-// Priority: draw buffer (write, or read that isn't cached) first, then a display read whose
-// address changed. The draw buffer comes from the VDP's FS bit (patch 0004 exports it as FB_FS).
-// A heuristic based on RD levels was tried first and failed in simulation right after a buffer
-// swap, when the new draw buffer's first access is a read.
-// Worst-case latency (sample + access in progress + own access, plus one draw access ahead of a
-// display read): draw 1 + 4 + 4 = 9 clk_ram (deadline 12), display 1 + 4 + 4 + 4 = 13 (deadline 16).
+// Priority: draw buffer (write, then read) first, then a display read. The draw buffer comes
+// from the VDP's FS bit (patch 0004 exports it as FB_FS). A heuristic based on RD levels was
+// tried first and failed in simulation right after a buffer swap.
+// Worst-case latency: input register + change detect + access in progress + own access +
+// delivery, plus one draw access ahead of a display read. See sim/fb_sram for measured values.
 //
 
 module fb_sram
@@ -53,30 +54,36 @@ module fb_sram
 	output reg        sram_lb_n
 );
 
-// Requests, sampled from the clk_sys domain
-wire [15:0] ch_a [2] = '{FB0_A,  FB1_A};
-wire [15:0] ch_d [2] = '{FB0_DO, FB1_DO};
-wire  [1:0] ch_we[2] = '{FB0_WE, FB1_WE};
-wire        ch_rd[2] = '{FB0_RD, FB1_RD};
+// Requests from the clk_sys domain: two stages of clk_ram registers. Stage 1 (ch_*) is a plain
+// clock-domain register; stage 2 (p_*) is the previous sample, for change detection.
+reg [15:0] ch_a [2], p_a [2];
+reg [15:0] ch_d [2], p_d [2];
+reg  [1:0] ch_we[2], p_we[2];
+reg        ch_rd[2], p_rd[2];
+reg        fs_r;
+always @(posedge clk_ram) begin
+	ch_a[0] <= FB0_A;  ch_d[0] <= FB0_DO; ch_we[0] <= FB0_WE; ch_rd[0] <= FB0_RD;
+	ch_a[1] <= FB1_A;  ch_d[1] <= FB1_DO; ch_we[1] <= FB1_WE; ch_rd[1] <= FB1_RD;
+	fs_r <= FB_FS;
+	for (int c = 0; c < 2; c++) begin
+		p_a[c] <= ch_a[c]; p_d[c] <= ch_d[c]; p_we[c] <= ch_we[c]; p_rd[c] <= ch_rd[c];
+	end
+end
 
-wire draw_ch = ~FB_FS;
+wire draw_ch = ~fs_r;
 
-// Per-channel bookkeeping
-reg        wr_done  [2];   // current write (A/D/WE) already performed
-reg [15:0] wr_a     [2];
-reg [15:0] wr_d     [2];
-reg  [1:0] wr_we    [2];
-reg        rd_valid [2];   // FBx_DI holds the data for rd_a
-reg [15:0] rd_a     [2];
+// New-request events. A held write (VDP FIFO: 6 MCLK, fill: whole step) is one request until its
+// address, data or byte enables change; a held read until its address changes.
+wire wr_evt[2], rd_evt[2];
+genvar c;
+generate for (c = 0; c < 2; c++) begin : evt
+	assign wr_evt[c] = (ch_we[c] != 2'b00) &&
+	                   (p_we[c] == 2'b00 || ch_we[c] != p_we[c] || ch_a[c] != p_a[c] || ch_d[c] != p_d[c]);
+	assign rd_evt[c] = ch_rd[c] && (ch_we[c] == 2'b00) &&
+	                   (!p_rd[c] || p_we[c] != 2'b00 || ch_a[c] != p_a[c]);
+end endgenerate
 
-function automatic wr_pending(input bit c);
-	wr_pending = (ch_we[c] != 2'b00) &&
-	             !(wr_done[c] && wr_a[c] == ch_a[c] && wr_d[c] == ch_d[c] && wr_we[c] == ch_we[c]);
-endfunction
-
-function automatic rd_pending(input bit c);
-	rd_pending = ch_rd[c] && (ch_we[c] == 2'b00) && !(rd_valid[c] && rd_a[c] == ch_a[c]);
-endfunction
+reg wr_pend[2], rd_pend[2];
 
 localparam ST_IDLE = 3'd0;
 localparam ST_RD   = 3'd1;   // waiting for read data
@@ -86,88 +93,100 @@ localparam ST_WR2  = 3'd4;   // WE held low
 reg  [2:0] state;
 reg  [3:0] cnt;
 reg        op_ch;
-reg [15:0] op_a;
 reg [15:0] dq_out;
-reg        dq_oe;
+reg [15:0] dq_oe;       // one enable per pin so each can sit in its I/O cell
 
-assign sram_dq = dq_oe ? dq_out : 16'hZZZZ;
+// I/O cell registers (FAST_*_REGISTER in ap_core.qsf): the bus is sampled every cycle into rd_q,
+// right at the pins. A read's data is taken from rd_q one cycle after its capture edge (xfer).
+reg [15:0] rd_q;
+reg        xfer;
+reg        xfer_ch;
+always @(posedge clk_ram) rd_q <= sram_dq;
 
-// Choose the next access: draw channel first, then the display channel.
-// (always_comb, not continuous assigns: a function call in an assign only re-evaluates when
-// its arguments change, not when the signals it reads change.)
-wire       dc = draw_ch;
-wire       pc = ~draw_ch;
-logic      go_wr_d, go_rd_d, go_wr_p, go_rd_p;
-always_comb begin
-	go_wr_d = wr_pending(dc);
-	go_rd_d = rd_pending(dc);
-	go_wr_p = wr_pending(pc);
-	go_rd_p = rd_pending(pc);
-end
+genvar gi;
+generate for (gi = 0; gi < 16; gi++) begin : dq_pins
+	assign sram_dq[gi] = dq_oe[gi] ? dq_out[gi] : 1'bZ;
+end endgenerate
+
+// Arbitration from the pending flags only: draw channel first (write, then read), then display.
+wire dc = draw_ch;
+wire pc = ~draw_ch;
+wire do_wr   = wr_pend[dc] || (!rd_pend[dc] && wr_pend[pc]);
+wire wr_ch   = wr_pend[dc] ? dc : pc;
+wire do_rd   = rd_pend[dc] || rd_pend[pc];
+wire rd_ch   = rd_pend[dc] ? dc : pc;
 
 always @(posedge clk_ram) begin
-	// A write to a channel makes its cached read data stale; a WE drop re-arms writes.
-	for (int c = 0; c < 2; c++) begin
-		if (ch_we[c] == 2'b00) wr_done[c] <= 0;
-	end
-
 	if (reset) begin
 		state     <= ST_IDLE;
 		sram_oe_n <= 1;
 		sram_we_n <= 1;
 		sram_ub_n <= 1;
 		sram_lb_n <= 1;
-		dq_oe     <= 0;
+		dq_oe     <= '0;
+		xfer      <= 0;
 		for (int c = 0; c < 2; c++) begin
-			wr_done[c]  <= 0;
-			rd_valid[c] <= 0;
+			wr_pend[c] <= 0;
+			rd_pend[c] <= 0;
 		end
 	end
 	else begin
+		// Deliver the previous read: rd_q holds the bus as sampled at its capture edge.
+		xfer <= 0;
+		if (xfer) begin
+			if (xfer_ch) FB1_DI <= rd_q; else FB0_DI <= rd_q;
+		end
+
+		// New requests set their flag; issuing an access clears it (below, later assignment wins
+		// only for the channel being issued, and a same-cycle event is the request being issued).
+		for (int c = 0; c < 2; c++) begin
+			if (wr_evt[c]) wr_pend[c] <= 1;
+			if (rd_evt[c]) rd_pend[c] <= 1;
+			if (ch_we[c] == 2'b00) wr_pend[c] <= 0;      // write withdrawn
+			if (!ch_rd[c] || ch_we[c] != 2'b00) rd_pend[c] <= 0;
+		end
+
 		case (state)
 			ST_IDLE: begin
 				sram_we_n <= 1;
-				dq_oe     <= 0;
-				if (go_wr_d || (!go_rd_d && go_wr_p)) begin
-					op_ch       <= go_wr_d ? dc : pc;
-					op_a        <= ch_a[go_wr_d ? dc : pc];
-					sram_a      <= {go_wr_d ? dc : pc, ch_a[go_wr_d ? dc : pc]};
-					dq_out      <= ch_d[go_wr_d ? dc : pc];
-					sram_ub_n   <= ~ch_we[go_wr_d ? dc : pc][1];
-					sram_lb_n   <= ~ch_we[go_wr_d ? dc : pc][0];
+				dq_oe     <= '0;
+				if (do_wr) begin
+					op_ch       <= wr_ch;
+					sram_a      <= {wr_ch, ch_a[wr_ch]};
+					dq_out      <= ch_d[wr_ch];
+					sram_ub_n   <= ~ch_we[wr_ch][1];
+					sram_lb_n   <= ~ch_we[wr_ch][0];
 					sram_oe_n   <= 1;
-					wr_a [go_wr_d ? dc : pc] <= ch_a [go_wr_d ? dc : pc];
-					wr_d [go_wr_d ? dc : pc] <= ch_d [go_wr_d ? dc : pc];
-					wr_we[go_wr_d ? dc : pc] <= ch_we[go_wr_d ? dc : pc];
+					if (!wr_evt[wr_ch]) wr_pend[wr_ch] <= 0;
 					state       <= ST_WR1;
 				end
-				else if (go_rd_d || go_rd_p) begin
-					op_ch     <= go_rd_d ? dc : pc;
-					op_a      <= ch_a[go_rd_d ? dc : pc];
-					sram_a    <= {go_rd_d ? dc : pc, ch_a[go_rd_d ? dc : pc]};
+				else if (do_rd) begin
+					op_ch     <= rd_ch;
+					sram_a    <= {rd_ch, ch_a[rd_ch]};
 					sram_ub_n <= 0;
 					sram_lb_n <= 0;
 					sram_oe_n <= 0;
+					if (!rd_evt[rd_ch]) rd_pend[rd_ch] <= 0;
 					cnt       <= cfg_rd - 1'd1;
 					state     <= ST_RD;
 				end
 			end
 
 			ST_RD: begin
-				// Capture cfg_rd cycles after the address was launched (3 = 28 ns).
+				// rd_q samples the bus cfg_rd cycles after the address was launched (3 = 28 ns);
+				// it is delivered on the next cycle (xfer), while the next access may start.
 				if (cnt != 0) cnt <= cnt - 1'd1;
 				else begin
-					if (op_ch) FB1_DI <= sram_dq; else FB0_DI <= sram_dq;
-					rd_a[op_ch]     <= op_a;
-					rd_valid[op_ch] <= 1;
-					state <= ST_IDLE;
+					xfer    <= 1;
+					xfer_ch <= op_ch;
+					state   <= ST_IDLE;
 				end
 			end
 
 			// Write: setup cycle with OE high and DQ still released (bus turnaround),
 			// then WE low for cfg_we cycles with data driven, then a hold cycle (in ST_IDLE).
 			ST_WR1: begin
-				dq_oe     <= 1;
+				dq_oe     <= '1;
 				sram_we_n <= 0;
 				cnt       <= cfg_we - 1'd1;
 				state     <= ST_WR2;
@@ -176,8 +195,8 @@ always @(posedge clk_ram) begin
 				if (cnt != 0) cnt <= cnt - 1'd1;
 				else begin
 					sram_we_n <= 1;
-					wr_done[op_ch]  <= 1;
-					rd_valid[op_ch] <= 0;
+					// A channel that reads what it just wrote must re-read.
+					if (ch_rd[op_ch] && ch_we[op_ch] == 2'b00) rd_pend[op_ch] <= 1;
 					state <= ST_IDLE;
 				end
 			end

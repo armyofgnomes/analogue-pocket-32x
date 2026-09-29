@@ -759,6 +759,17 @@ set_global_assignment -name VHDL_FILE core/rtl/S32X_MiSTer/rtl/CEGen.vhd
 set_global_assignment -name VHDL_FILE core/rtl/S32X_MiSTer/rtl/snd_mix.vhd
 set_global_assignment -name SYSTEMVERILOG_FILE core/rtl/S32X_MiSTer/rtl/cheatcodes.sv
 set_global_assignment -name SDC_FILE core/core_constraints.sdc
+# SRAM (fb_sram.sv): registers in the I/O cells, so pin timing doesn't depend on fabric routing
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to sram_a[*]
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to sram_oe_n
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to sram_we_n
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to sram_ub_n
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to sram_lb_n
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to sram_dq[*]
+set_instance_assignment -name FAST_OUTPUT_ENABLE_REGISTER ON -to sram_dq[*]
+set_instance_assignment -name FAST_INPUT_REGISTER ON -to sram_dq[*]
+# Keep fb_sram's clock-crossing input registers where they are (retiming moved them and broke hold)
+set_instance_assignment -name PHYSICAL_SYNTHESIS_REGISTER_RETIMING OFF -to "core_top:ic|s32x_system:system|fb_sram:fb_sram"
 set_global_assignment -name SIGNALTAP_FILE core/stp1.stp
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to bridge_1wire
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to bridge_spiclk
