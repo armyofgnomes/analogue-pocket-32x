@@ -1,0 +1,40 @@
+diff --git a/rtl/32X/32X.sv b/rtl/32X/32X.sv
+index 2709f85..cd09fee 100644
+--- a/rtl/32X/32X.sv
++++ b/rtl/32X/32X.sv
+@@ -56,6 +56,7 @@ module S32X
+ 	output     [15:0] FB1_DO,
+ 	output      [1:0] FB1_WE,
+ 	output            FB1_RD,
++	output            FB_FS,          // Pocket: 1 = FB0 is the draw buffer
+ 	
+ 	output            DOT_CE,
+ 	output      [4:0] R,
+@@ -400,6 +401,7 @@ module S32X
+ 		.FB1_DO(FB1_DO),
+ 		.FB1_WE(FB1_WE),
+ 		.FB1_RD(FB1_RD),
++		.FB_FS(FB_FS),
+ 		
+ 		.DOT_CE(DOT_CE),
+ 		.R(R),
+diff --git a/rtl/32X/VDP.sv b/rtl/32X/VDP.sv
+index 218241b..71ea3af 100644
+--- a/rtl/32X/VDP.sv
++++ b/rtl/32X/VDP.sv
+@@ -39,6 +39,7 @@ module S32X_VDP
+ 	output     [15:0] FB1_DO,
+ 	output      [1:0] FB1_WE,
+ 	output            FB1_RD,
++	output            FB_FS,          // Pocket: 1 = FB0 is the draw buffer
+ 	
+ 	output            DOT_CE,
+ 	output      [4:0] R,
+@@ -514,6 +515,7 @@ module S32X_VDP
+ 	                                                                                 FB_WR & FIFO_FB_WE[0] & ((|FIFO_FB_D[ 7:0] & FIFO_FB_A[17]) | ((|FIFO_FB_D[ 7:0] | FIFO_FB_WE[1]) & ~FIFO_FB_A[17]))};
+ 	assign FB_DRAW_RD = FILL_EXEC ? 1'b0 : FB_RD;
+ 	
++	assign FB_FS = FS;
+ 	assign FB_DRAW_Q = FS ? FB0_DI : FB1_DI;
+ 	assign FB_DISP_Q = FS ? FB1_DI : FB0_DI;
+ 	

@@ -35,7 +35,7 @@ Update the status column in the same commit that completes a requirement.
 | REQ-TOOL-01 | P0 | Pick and record a Quartus Prime Lite version. The project compiles cleanly with it (`docs/architecture.md` §5 notes version) | FIT | DONE |
 | REQ-TOOL-02 | P0 | Script to bit-reverse `ap_core.rbf` → `bitstream.rbf_r` (e.g. `tools/reverse_bits.py`) | SIM | DONE |
 | REQ-TOOL-03 | P0 | Script to assemble an SD-card-ready package (`Cores/`, `Platforms/`, `Assets/` layout) from repo files + built bitstream | HW | DONE |
-| REQ-TOOL-04 | P1 | Simulation setup for core logic (Verilator and/or GHDL + Icarus/ModelSim for mixed VHDL/Verilog), runnable in Claude's container | SIM | TODO |
+| REQ-TOOL-04 | P1 | Simulation setup for core logic (Verilator and/or GHDL + Icarus/ModelSim for mixed VHDL/Verilog), runnable in Claude's container | SIM | DONE |
 | REQ-TOOL-05 | P1 | Build-ID and version stamping (template's `build_id_gen.tcl`) surfaced in `core.json` versions/release notes | DOC | TODO |
 | REQ-TOOL-06 | P2 | CI build (GitHub Actions with a Quartus container) producing the `.rbf_r` and zip artifact | FIT | TODO |
 
@@ -53,7 +53,7 @@ Update the status column in the same commit that completes a requirement.
 | ID | Pri | Requirement | Verify | Status |
 |---|---|---|---|---|
 | REQ-ARCH-01 | P0 | Decide the base: port S32X_MiSTer system logic (recommended) vs. openFPGA-Genesis + graft 32X. Record the decision and rationale | DOC | DONE |
-| REQ-ARCH-02 | P0 | Finalize memory map for cart ROM, 32X SDRAM, framebuffers, save RAM, BIOS (proposal in `architecture.md` §4), including a bandwidth budget per memory | DOC | TODO |
+| REQ-ARCH-02 | P0 | Finalize memory map for cart ROM, 32X SDRAM, framebuffers, save RAM, BIOS (proposal in `architecture.md` §4), including a bandwidth budget per memory | DOC | DONE |
 | REQ-ARCH-03 | P0 | **Fit experiment:** synthesize the S32X system logic (no MiSTer `sys/`) for 5CEBA4F23C8 with framebuffers stubbed out of BRAM. Record ALM / M10K / DSP / PLL usage and Fmax | FIT | DONE |
 | REQ-ARCH-04 | P0 | If REQ-ARCH-03 is over budget: a reduction plan with estimated savings per item, executed until fit with ≥ ~10% ALM headroom for routing | FIT | WIP |
 | REQ-ARCH-05 | P0 | Clock plan: PLL outputs for MCLK (NTSC), memory clock, video clock (+90°), 12.288 MHz audio; CDC points listed | FIT | TODO |
@@ -88,7 +88,7 @@ Update the status column in the same commit that completes a requirement.
 | ID | Pri | Requirement | Verify | Status |
 |---|---|---|---|---|
 | REQ-MEM-01 | P0 | SDRAM controller for the Pocket's 64 MB SDRAM, multi-port: cart ROM (68K + SH-2 + Z80 bank), loader writes, and (if chosen) 32X SDRAM + save RAM, with bounded latency | HW | WIP |
-| REQ-MEM-02 | P0 | Framebuffer storage in external memory (SRAM proposed) supporting 32X VDP scanout, SH-2 reads/writes, and VDP auto-fill, with FB swap semantics | HW | TODO |
+| REQ-MEM-02 | P0 | Framebuffer storage in external memory (SRAM proposed) supporting 32X VDP scanout, SH-2 reads/writes, and VDP auto-fill, with FB swap semantics | HW | WIP |
 | REQ-MEM-03 | P0 | 32X SDRAM (256 KB) in external memory with wait-state behavior close to real hardware | HW | TODO |
 | REQ-MEM-04 | P0 | BIOS images in BRAM (initialized at build time, or loaded from data slots per REQ-APF-03b). Correct mapping at SH-2 0x00000000 and 68K vector area | SIM | TODO |
 | REQ-MEM-05 | P0 | Genesis internal RAMs (68K 64 KB, Z80 8 KB, VRAM 64 KB, CRAM, VSRAM) in BRAM | FIT | DONE |

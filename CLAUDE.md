@@ -97,6 +97,15 @@ so a local session can run the full build headless.
 3. `tools/package.py [--zip]` stages an SD-card tree in `build/sdcard/` (layout per
    `docs/hardware-testing.md`). Copy its contents to the SD card root.
 
+## Simulation
+
+Questa FSE (installed with Quartus at `~/altera_lite/25.1std/questa_fse/bin`) runs testbenches:
+`sim/run.sh <bench>` (e.g. `sim/run.sh fb_sram`). Each bench lives in `sim/<bench>/` with
+`files.f` and `tb_<bench>.sv`. `VSIM_ARGS="-sv_seed N"` picks a seed and `VLOG_DEFS` passes
+defines. Needs `SALT_LICENSE_SERVER` pointing at the free license (run.sh defaults it to
+`~/.altera.quartus/questa_lic.dat`). Prove memory controllers and other timing-critical logic
+here before asking the owner for a hardware test.
+
 ## Working with the owner
 
 - The owner tests on real hardware. After any change that affects the bitstream, end with a

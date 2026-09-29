@@ -100,16 +100,44 @@ On the Pocket, the framebuffers alone (2 Mbit) would use two-thirds of all block
 Genesis VRAM (512 Kbit), 68K RAM (512 Kbit), caches and line buffers. So **the framebuffers
 must move to external memory**, and the 32X SDRAM has to go somewhere other than DDR3.
 
-### Proposed memory map (to be validated, REQ-ARCH-02)
+### Memory map (REQ-ARCH-02, decided 2026-09-28)
 
-| Contents | Size | Proposed home | Notes |
+| Contents | Size | Home | Controller / port |
 |---|---|---|---|
-| Cart ROM | ≤ 4 MB | SDRAM | Read-mostly. SH-2 and 68K both read it, so it needs an arbitrated, multi-port controller |
-| 32X SDRAM | 256 KB | SDRAM (separate bank) **or** PSRAM | SH-2 caches soften latency; burst/cache-line fills matter |
-| 32X framebuffers | 2× 128 KB | **Async SRAM (256 KB)**, an exact fit | 16-bit, low latency. Must sustain VDP scanout + SH-2 writes + auto-fill. Bandwidth analysis required. Fallback: PSRAM (one chip per buffer, or both in one) |
-| Cart save RAM / EEPROM | ≤ 64 KB | BRAM or PSRAM | Mirrored to the SD card via APF save slot |
-| Genesis VRAM, 68K RAM, Z80 RAM, CRAM, VSRAM | ~136 KB | BRAM | Same as the existing Pocket Genesis cores |
-| SH-2 caches, 32X palette, boot ROMs, line buffers, FIFOs | small | BRAM / MLAB | Boot ROMs embedded at build time (personal use) or loaded from data slots |
+| Cart ROM | ≤ 4 MB (32 MB addressable) | SDRAM 0x0000000– | upstream `sdram.sv` port 1 (68K or 32X cart side), port 3 loader writes |
+| 32X SDRAM | 256 KB | SDRAM 0x1000000–0x103FFFF | `sdram.sv` port 0, via `S32X` `SDR_*` (has `SDR_WAIT`, so latency is tolerated) |
+| Cart save RAM | ≤ 64 KB | SDRAM 0x1800000–0x180FFFF | `sdram.sv` port 2 (as upstream). Save-slot plumbing is REQ-SAVE-01 |
+| 32X framebuffers | 2 × 128 KB | **Async SRAM**: FB0 at words 0x00000–0x0FFFF, FB1 at 0x10000–0x1FFFF | `fb_sram.sv` (new, M3) |
+| Genesis VRAM, 68K/Z80 RAM, CRAM, VSRAM | ~136 KB | BRAM | upstream, as today |
+| 32X BIOS, SH-2 caches, palette, FIFOs | small | BRAM / MLAB | BIOS from `bios/` at build time |
+| PSRAM (2 × 16 MB) | | unused | spare, e.g. fallback for 32X SDRAM if SDRAM bandwidth is short |
+
+**Framebuffer bandwidth.** The 32X VDP (`VDP.sv`) has no wait input on its FB ports, so the
+controller must meet fixed deadlines. From the VDP source, all in MCLK (53.69 MHz) cycles:
+
+| Access | Rate | Deadline |
+|---|---|---|
+| Display read (front buffer) | ≤ 1 word per dot: every 8 cycles in H40, every 10 in H32 | The address is registered at a dot enable and the data is used at the next one, so **≥ 8 cycles** |
+| SH-2 FIFO write (back buffer) | ≤ 1 per 6 cycles | `FB_WR` holds address and data for **6 cycles** |
+| SH-2 read (back buffer) | occasional | `FB_RD` held, data taken after **7 cycles** |
+| Auto-fill write (back buffer) | 1 word per 3 SH-2 clock enables (~7 cycles) | WE held for the whole ~7-cycle step in `USE_ASYNC_FB` mode |
+
+Worst case is one display read plus one draw access per ~6–8 cycles, under half of one
+16-bit async SRAM at 37 ns per access (4 × 107 MHz cycles). `fb_sram.sv` arbitrates both
+framebuffers onto the one SRAM: a display read is issued when the display address changes, a
+draw access when requested, with worst-case latency ≈ 2 accesses ≈ 4 MCLK plus sync. This must
+be proven in simulation against the deadlines above (REQ-MEM-02) before hardware.
+
+**Simulation result (2026-09-28, `sim/fb_sram`):** 2 M MCLK cycles per seed, cycle-accurate VDP
+traffic (display reads in H32/H40, 6-cycle FIFO writes, SH-2 reads, held-WE fill, frequent buffer
+swaps, relaxed and saturated phases), 10 ns SRAM model with write-timing and contention checks.
+All reads and writes meet their deadlines on every seed tried. Worst measured latency: SH-2 read
+**2.75 MCLK** (deadline 6), display **4.75** (deadline 8). Still passes with every deadline
+tightened by 3 MCLK. The draw buffer comes from the VDP's `FS` bit (patch 0004). A heuristic
+that inferred it from the RD levels hit 5.75/6 in simulation right after a buffer swap.
+
+The upstream core is used with `USE_ASYNC_FB=1`, which keeps display RD permanently asserted and
+fill WE held for the whole step, so the controller never has to catch single-cycle strobes.
 
 ### Logic budget
 
