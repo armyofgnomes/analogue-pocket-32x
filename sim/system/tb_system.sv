@@ -305,6 +305,44 @@ always @(posedge clk_sys) if (core_start >= 0 && $realtime >= core_start && $rea
 	         dut.S32X.SHCS0M_N, dut.S32X.SHCS1_N, dut.S32X.SHCS2_N, dut.S32X.SHCS3_N, dut.S32X.SHRD_N,
 	         dut.S32X.SHBREQ_N, dut.S32X.SHBACK_N, dut.S32X.SHWAIT_N, dut.s32x_sdr_wait, dut.S32X.SSH.core.PC);
 
+// Both SH-2 cores' reads of the 32X system register at 0x4000 (adapter control / interrupt mask):
+// the data each core latches, with the interface's 16-bit output, for the first 40 reads.
+int n_r4000 = 0;
+always @(posedge clk_sys) if (dut.S32X.s32x_if.ADCR.RES && n_r4000 < 40) begin
+	if (dut.S32X.MSH.core.CE && dut.S32X.MSH.core.BUS_REQ && !dut.S32X.MSH.core.BUS_WR && !dut.S32X.MSH.core.BUS_WAIT &&
+	    dut.S32X.MSH.core.BUS_A[15:0] == 16'h4000 && dut.S32X.MSH.core.BUS_A[28:24] == 0) begin
+		n_r4000++;
+		$display("%t R4000 master: A=%08h DI=%08h BA=%b IF_DO=%04h PC=%08h", $realtime, dut.S32X.MSH.core.BUS_A,
+		         dut.S32X.MSH.core.BUS_DI, dut.S32X.MSH.core.BUS_BA, dut.S32X.s32x_if.SH_REG_DO, dut.S32X.MSH.core.PC);
+	end
+	if (dut.S32X.SSH.core.CE && dut.S32X.SSH.core.BUS_REQ && !dut.S32X.SSH.core.BUS_WR && !dut.S32X.SSH.core.BUS_WAIT &&
+	    dut.S32X.SSH.core.BUS_A[15:0] == 16'h4000 && dut.S32X.SSH.core.BUS_A[28:24] == 0) begin
+		n_r4000++;
+		$display("%t R4000 slave: A=%08h DI=%08h BA=%b IF_DO=%04h PC=%08h", $realtime, dut.S32X.SSH.core.BUS_A,
+		         dut.S32X.SSH.core.BUS_DI, dut.S32X.SSH.core.BUS_BA, dut.S32X.s32x_if.SH_REG_DO, dut.S32X.SSH.core.PC);
+	end
+end
+
+// SH-2 cartridge (CS1, 0x02xxxxxx/0x22xxxxxx) reads as each core receives them, after +cart_log_ms
+// (first 60), with the 68K's address at that moment: to catch wrong data from the shared cart path.
+int n_cartlog = 0;
+real cart_log_ms = -1;
+initial void'($value$plusargs("cart_log_ms=%f", cart_log_ms));
+always @(posedge clk_sys) if (cart_log_ms >= 0 && $realtime >= cart_log_ms * 1e6 && n_cartlog < 60) begin
+	if (dut.S32X.MSH.core.CE && dut.S32X.MSH.core.BUS_REQ && !dut.S32X.MSH.core.BUS_WR && !dut.S32X.MSH.core.BUS_WAIT &&
+	    dut.S32X.MSH.core.BUS_A[28:25] == 4'h1) begin
+		n_cartlog++;
+		$display("%t CART master: A=%08h DI=%08h id=%b PC=%08h | 68K %06h", $realtime, dut.S32X.MSH.core.BUS_A,
+		         dut.S32X.MSH.core.BUS_DI, dut.S32X.MSH.core.BUS_ID, dut.S32X.MSH.core.PC, {dut.gen.M68K_A, 1'b0});
+	end
+	if (dut.S32X.SSH.core.CE && dut.S32X.SSH.core.BUS_REQ && !dut.S32X.SSH.core.BUS_WR && !dut.S32X.SSH.core.BUS_WAIT &&
+	    dut.S32X.SSH.core.BUS_A[28:25] == 4'h1) begin
+		n_cartlog++;
+		$display("%t CART slave: A=%08h DI=%08h id=%b PC=%08h | 68K %06h", $realtime, dut.S32X.SSH.core.BUS_A,
+		         dut.S32X.SSH.core.BUS_DI, dut.S32X.SSH.core.BUS_ID, dut.S32X.SSH.core.PC, {dut.gen.M68K_A, 1'b0});
+	end
+end
+
 // Master SH-2 register-file writes every clock in [rf_start, rf_end] ns (+rf_start/+rf_end, ACC=1)
 real rf_start = -1, rf_end = -1;
 initial begin
