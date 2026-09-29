@@ -1,0 +1,43 @@
+--- a/rtl/32X/VDP.sv
++++ b/rtl/32X/VDP.sv
+@@ -103,10 +103,10 @@
+ 
+ 	bit        PAL_ACCESS;
+ 	bit        FILL_EXEC;
++	bit        FILL_PEND;      // Pocket: module level, part of FEN
+ 	bit  [1:0] FILL_WAIT;
+ 	always @(posedge CLK or negedge RST_N) begin
+ 		bit  [7:0] FILL_CNT;
+-		bit        FILL_PEND;
+ 		bit  [2:0] ACCESS_WAIT;
+ 		
+ 		if (!RST_N) begin
+@@ -193,7 +193,9 @@
+ 				ACCESS_WAIT <= 3'd6;
+ 			end
+ 			
+-			if (FILL_PEND && CE_R) begin
++			// Pocket: start the fill only once queued framebuffer writes have drained; the fill takes
++			// over the draw-buffer address mux, which cut short (external SRAM) or dropped FIFO writes.
++			if (FILL_PEND && CE_R && FIFO_EMPTY && !FIFO_WR && !FIFO_FB_WRITE) begin
+ 				FILL_PEND <= 0;
+ 				FILL_EXEC <= 1;
+ 			end else if (FILL_EXEC && CE_R) begin
+@@ -232,7 +234,7 @@
+ 		end
+ 		else begin
+ 			FIFO_RD <= 0;
+-			if (!FIFO_EMPTY && !FIFO_FB_WRITE) begin
++			if (!FIFO_EMPTY && !FIFO_FB_WRITE && !FILL_EXEC) begin   // Pocket: not during a fill
+ 				{FIFO_FB_A,FIFO_FB_WE,FIFO_FB_D} <= FIFO_Q;
+ 				FB_WR <= 1;
+ 				FIFO_RD <= 1;
+@@ -409,7 +411,7 @@
+ 		end
+ 	end
+ 	
+-	assign FEN = FILL_EXEC | RFRH;
++	assign FEN = FILL_PEND | FILL_EXEC | RFRH;   // Pocket: FEN reads 1 from the AFDR write on
+ 	
+ 	
+ 	bit [16:0] LINE_LEAD;

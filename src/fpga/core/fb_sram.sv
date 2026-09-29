@@ -18,8 +18,11 @@
 //   read  = address, capture cfg_rd cycles later in the I/O-cell register; the next access can
 //           start on the capture edge
 //   write = address setup, WE low for cfg_we cycles, one hold cycle
-// Priority: draw buffer (write, then read) first, then a display read. A draw request aborts a
-// display read in progress (async SRAM reads can simply be abandoned; it is re-issued after).
+// Priority: an SH-2 read of the draw buffer, then the display read, then draw writes. The SH-2
+// read may abort a display read in progress (async SRAM reads can simply be abandoned; it is
+// re-issued after); writes never do. Worst cases: display waits for one access in progress, a
+// write waits for one display read (a write burst from auto-fill must not starve the display;
+// sim/vdp caught that as single wrong dots).
 // The draw buffer comes from the VDP's FS bit (patch 0004 exports it as FB_FS); a heuristic based
 // on RD levels failed in simulation right after a buffer swap. Measured latencies: sim/fb_sram.
 //
@@ -121,18 +124,20 @@ generate for (gi = 0; gi < 16; gi++) begin : dq_pins
 	assign sram_dq[gi] = dq_oe[gi] ? dq_out[gi] : 1'bZ;
 end endgenerate
 
-// Arbitration from the pending flags only: draw channel first (write, then read), then display.
+// Arbitration from the pending flags only: SH-2 read of the draw buffer (after any write to it
+// that is still pending, so it sees the new data), then the display read, then writes.
 wire dc = draw_ch;
 wire pc = ~draw_ch;
-wire do_wr   = wr_pend[dc] || (!rd_pend[dc] && wr_pend[pc]);
+wire draw_rd = rd_pend[dc] && !wr_pend[dc];
+wire do_rd   = draw_rd || rd_pend[pc];
+wire rd_ch   = draw_rd ? dc : pc;
+wire do_wr   = wr_pend[dc] || wr_pend[pc];
 wire wr_ch   = wr_pend[dc] ? dc : pc;
-wire do_rd   = rd_pend[dc] || rd_pend[pc];
-wire rd_ch   = rd_pend[dc] ? dc : pc;
 
 // When a new access may start: from idle, on a read's capture edge (the data is already in rd_q
-// and the address may change afterwards), or by aborting a display read for a draw request.
+// and the address may change afterwards), or by aborting a display read for an SH-2 read.
 wire rd_done  = (state == ST_RD) && (cnt == 0);
-wire rd_abort = (state == ST_RD) && (cnt != 0) && (op_ch != dc) && (wr_pend[dc] || rd_pend[dc]);
+wire rd_abort = (state == ST_RD) && (cnt != 0) && (op_ch != dc) && draw_rd;
 wire can_start = (state == ST_IDLE) || rd_done || rd_abort;
 
 always @(posedge clk_ram) begin
@@ -178,19 +183,7 @@ always @(posedge clk_ram) begin
 
 		if (state == ST_RD && !rd_done && !rd_abort) cnt <= cnt - 1'd1;
 
-		if (can_start && do_wr) begin
-			op_ch       <= wr_ch;
-			sram_a      <= {wr_ch, ch_a[wr_ch]};
-			dq_out      <= ch_d[wr_ch];
-			sram_ub_n   <= ~ch_we[wr_ch][1];
-			sram_lb_n   <= ~ch_we[wr_ch][0];
-			sram_oe_n   <= 1;
-			sram_we_n   <= 1;
-			dq_oe       <= '0;
-			if (!wr_evt[wr_ch]) wr_pend[wr_ch] <= 0;
-			state       <= ST_WR1;
-		end
-		else if (can_start && do_rd) begin
+		if (can_start && do_rd) begin
 			op_ch     <= rd_ch;
 			sram_a    <= {rd_ch, ch_a[rd_ch]};
 			sram_ub_n <= 0;
@@ -201,6 +194,18 @@ always @(posedge clk_ram) begin
 			if (!rd_evt[rd_ch]) rd_pend[rd_ch] <= 0;
 			cnt       <= cfg_rd - 1'd1;
 			state     <= ST_RD;
+		end
+		else if (can_start && do_wr) begin
+			op_ch       <= wr_ch;
+			sram_a      <= {wr_ch, ch_a[wr_ch]};
+			dq_out      <= ch_d[wr_ch];
+			sram_ub_n   <= ~ch_we[wr_ch][1];
+			sram_lb_n   <= ~ch_we[wr_ch][0];
+			sram_oe_n   <= 1;
+			sram_we_n   <= 1;
+			dq_oe       <= '0;
+			if (!wr_evt[wr_ch]) wr_pend[wr_ch] <= 0;
+			state       <= ST_WR1;
 		end
 		else case (state)
 			ST_IDLE: begin

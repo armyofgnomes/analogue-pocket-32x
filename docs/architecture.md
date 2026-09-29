@@ -139,14 +139,34 @@ that inferred it from the RD levels hit 5.75/6 in simulation right after a buffe
 **Hardware result (2026-09-28, memtest sweeps, see `docs/test-log.md`):** the Pocket's SRAM needs
 **more than 28 ns for reads**. 32.6 ns works and production uses 37.2 ns (4 clk_ram cycles),
 so there's at least 4.6 ns of margin. Writes work with an 18.6 ns WE pulse (production), not
-with 9.3 ns. With registers in the I/O cells and event-driven arbitration (draw requests abort
-display reads), the production timing meets the VDP deadlines on hardware with a 6-cycle hold
+with 9.3 ns. With registers in the I/O cells and event-driven arbitration, the production timing meets the VDP deadlines on hardware with a 6-cycle hold
 and with a 5-cycle hold (one cycle tighter than the VDP). Simulation at 37 ns reads: worst SH-2
 read 3.75/6 MCLK, display 5.75/8. 5-cycle (46.6 ns) reads would not meet the display deadline
 without further work (e.g. display prefetch).
 
 The upstream core is used with `USE_ASYNC_FB=1`, which keeps display RD permanently asserted and
 fill WE held for the whole step, so the controller never has to catch single-cycle strobes.
+
+**Differential simulation (2026-09-29, `sim/vdp`):** two copies of the upstream VDP get the same
+SH-2 bus traffic and Genesis sync: MiSTer's configuration (`USE_ASYNC_FB=0`, 1-cycle block-RAM
+framebuffers) as the reference, ours (`USE_ASYNC_FB=1`, `fb_sram.sv`, 35 ns SRAM model) as the
+device under test. Every pixel, bus read and write must match. It found three problems that
+`sim/fb_sram` (which models the VDP rather than running it) could not:
+- Draw writes took priority over the display read and could abort it. During an auto-fill's
+  back-to-back writes, the display read then landed after its dot, giving about one wrong dot
+  per few frames. The arbitration is now SH-2 read, then display read, then writes, and only
+  an SH-2 read may abort a display read.
+- When the SH-2 starts an auto-fill while FIFO pixel writes are still draining, the fill takes
+  over the VDP's draw address mux. With block RAM the write has already landed in its first
+  cycle; with SRAM it was cut short. Upstream also drops FIFO entries that drain during a fill.
+  Patch 0006 starts the fill only after the FIFO is idle and keeps the FIFO from draining during
+  a fill.
+- `FEN` didn't cover the cycles between the `AFDR` write and the fill starting, so software
+  polling `FEN` could reprogram a fill that hadn't run yet. Patch 0006 includes the pending fill
+  in `FEN`, as on real hardware.
+
+With these fixes, 30 frames of random traffic in every bitmap mode (H40, several seeds)
+match exactly.
 
 ### Logic budget
 

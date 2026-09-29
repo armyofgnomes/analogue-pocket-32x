@@ -153,10 +153,14 @@ always @(posedge clk_ram) if (dut.state == 3'd1 && dut.cnt == 0) begin   // ST_R
 	end
 end
 
-// A write is on time if the SRAM already holds it when the VDP's hold window ends.
+// A write is on time if, when the VDP's hold window ends, the SRAM already holds it or the
+// controller is in the middle of it (address, data and byte enables are latched at its start,
+// so the VDP may move on).
 task automatic check_write(input string what, input int ch, input bit [15:0] a);
 	bit [16:0] sa = {ch[0], a};
-	if (mem[sa] !== shadow[sa]) begin
+	bit in_flight = (dut.state == 3'd3 || dut.state == 3'd4) && dut.sram_a == sa &&
+	                {sram_ub_n ? mem[sa][15:8] : dut.dq_out[15:8], sram_lb_n ? mem[sa][7:0] : dut.dq_out[7:0]} === shadow[sa];
+	if (mem[sa] !== shadow[sa] && !in_flight) begin
 		$display("%t ERROR: %s FB%0d[%04h] not written by deadline: sram %04h expected %04h (st=%0d draw_ch=%b wr_pend=%b)",
 		         $realtime, what, ch, a, mem[sa], shadow[sa], dut.state, dut.draw_ch, dut.wr_pend[ch]);
 		errors++;

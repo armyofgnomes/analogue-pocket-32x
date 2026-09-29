@@ -13,6 +13,7 @@ Instead, each local modification is a patch here, applied in name order by
 | `0003-bios-from-generated-mif.patch` | `MDROM.v`/`SHROM.v` load `core/bios_mif/*.mif`, generated from the gitignored `bios/` by `tools/gen_bios_mif.py`, instead of upstream's bundled BIOS `.mif` files (REQ-LEGAL-03, REQ-APF-03a) |
 | `0004-export-fb-swap.patch` | `VDP.sv`/`32X.sv`: export the VDP's framebuffer-swap bit `FS` as `FB_FS`, so `fb_sram.sv` knows which framebuffer is being drawn and can prioritize it (REQ-MEM-02) |
 | `0005-sh2-ubc-disable.patch` | `32X.sv`: `UBC_DISABLE(1)` on both SH-2s. The User Break Controller is a debugger aid that no game uses; about 245 ALMs (REQ-ARCH-04, fit experiment `no_debug`) |
+| `0006-vdp-fill-after-fifo.patch` | `VDP.sv`: an auto-fill starts only after queued FIFO framebuffer writes have drained, the FIFO doesn't drain during a fill, and `FEN` also covers a fill that is pending. With the SRAM framebuffers, a FIFO write that overlapped a fill start was cut short; upstream also drops such writes (found by `sim/vdp`, REQ-MEM-02) |
 
 To add a patch: start from a clean checkout (`git -C src/fpga/core/rtl/S32X_MiSTer checkout -- .`,
 not the patched tree, or the diff will include the existing patches), edit files in the submodule, `git -C src/fpga/core/rtl/S32X_MiSTer diff > src/fpga/core/rtl/patches/NNNN-name.patch`,

@@ -108,7 +108,10 @@ Questa FSE (installed with Quartus at `~/altera_lite/25.1std/questa_fse/bin`) ru
 `files.f` and `tb_<bench>.sv`. `VSIM_ARGS="-sv_seed N"` picks a seed and `VLOG_DEFS` passes
 defines. Needs `SALT_LICENSE_SERVER` pointing at the free license (run.sh defaults it to
 `~/.altera.quartus/questa_lic.dat`). Prove memory controllers and other timing-critical logic
-here before asking the owner for a hardware test.
+here before asking the owner for a hardware test. `sim/vdp` is the reference check for the
+32X framebuffer path: it runs the upstream VDP twice (MiSTer's block-RAM setup vs. ours with
+`fb_sram.sv`) on the same random traffic and requires identical output
+(`VLOG_DEFS="-suppress 2244,2388" VSIM_ARGS="-suppress 7063,7061,10000 +frames=30" sim/run.sh vdp`).
 
 ## Working with the owner
 
