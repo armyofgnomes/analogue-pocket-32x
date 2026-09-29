@@ -21,10 +21,13 @@ the same commit.
 
 ## Current state
 
-M0 (tooling and feasibility) is done. M1 (our own build on hardware) is pending an owner test,
-and M2 (Genesis on the Pocket) is in progress. The core instantiates S32X_MiSTer's Genesis
-(`gen`) and cartridge mapper with SDRAM, ROM loading, video, audio and input. The 32X block
-isn't instantiated yet. The repo started as `open-fpga/core-template` v1.3.0 (commit `da3a021`).
+M0 through M3 are done: tooling, our own build on hardware, Genesis games on the Pocket, and
+the memory subsystem (SDRAM ports plus both 32X framebuffers in the async SRAM) proven by the
+memtest build. M4 (32X games boot) is in progress. The full Genesis + 32X system fits at about
+90% of ALMs with timing met. On hardware the 32X boots and Doom runs, but its 32X layer has been
+corrupted, and Kolibri shows a black screen (the full-system sim traps its master SH-2 at
+56.8 ms). See `docs/test-log.md` for the latest hardware results. The repo started as
+`open-fpga/core-template` v1.3.0 (commit `da3a021`).
 
 ## Repository layout
 
@@ -33,11 +36,11 @@ core.json, data.json, video.json, audio.json,   APF core definition JSON files
 input.json, interact.json, variants.json         (copied into the SD card's core folder)
 info.txt                                          Text shown in the Pocket's core info screen
 dist/                                             SD-card staging: icon.bin, platforms/*.json, platform images
-output/bitstream.rbf_r                            Bit-reversed bitstream the Pocket loads (template's gray screen for now)
+output/bitstream.rbf_r                            Bit-reversed bitstream the Pocket loads (latest build)
 src/fpga/ap_core.qpf / ap_core.qsf                Quartus project (Cyclone V 5CEBA4F23C8, top = apf_top)
 src/fpga/apf/                                     Analogue framework glue. Treat as vendor code; do not edit
 src/fpga/core/core_top.v                          APF glue: bridge, ROM loader, input, video formatter, audio
-src/fpga/core/s32x_system.sv                      Console: upstream gen + CART + SDRAM controller (32X to be added)
+src/fpga/core/s32x_system.sv                      Console: upstream gen + 32X + CART, SDRAM controller, fb_sram
 src/fpga/core/pll_core.v                          PLL: MCLK 53.69, SDRAM 107.39, video 26.85 (+90°) MHz
 src/fpga/core/rtl/S32X_MiSTer/                    Upstream submodule (pinned; patched at build time)
 src/fpga/core/rtl/patches/                        Our patches to upstream, applied in order

@@ -542,6 +542,19 @@ CART cart
 	.sf_map(3'd0)
 );
 
+// clk_ram (2x clk_sys, same PLL) samples clk_sys-domain requests only on the edge in mid clk_sys
+// cycle; the other edge coincides with the launching clk_sys edge and would re-sample the same
+// values under a zero-margin hold check (core_constraints.sdc). sys_tog toggles every clk_sys
+// cycle; sampled on the falling clk_ram edge (a quarter clk_sys cycle of margin both ways) it has
+// changed since the previous rising clk_ram edge exactly on the mid edges. fb_sram derives the
+// same from sys_tog on its own.
+reg sys_tog = 0;
+always @(posedge clk_sys) sys_tog <= ~sys_tog;
+reg ram_tog_n = 0, ram_tog_p = 0;
+always @(negedge clk_ram) ram_tog_n <= sys_tog;
+always @(posedge clk_ram) ram_tog_p <= ram_tog_n;
+wire ram_mid = ram_tog_n ^ ram_tog_p;
+
 ///////////////////////////////////////////////////
 // 32X framebuffers in SRAM (fb_sram.sv)
 
@@ -588,18 +601,6 @@ assign memtest_status = '0;
 //   0x1000000-0x103FFFF  32X SDRAM (port 0)
 //   0x1800000-0x180FFFF  cart save RAM (port 2)
 
-// clk_ram (2x clk_sys, same PLL) samples clk_sys-domain requests only on the edge in mid clk_sys
-// cycle; the other edge coincides with the launching clk_sys edge and would re-sample the same
-// values under a zero-margin hold check (core_constraints.sdc). sys_tog toggles every clk_sys
-// cycle; sampled on the falling clk_ram edge (a quarter clk_sys cycle of margin both ways) it has
-// changed since the previous rising clk_ram edge exactly on the mid edges. fb_sram derives the
-// same from sys_tog on its own.
-reg sys_tog = 0;
-always @(posedge clk_sys) sys_tog <= ~sys_tog;
-reg ram_tog_n = 0, ram_tog_p = 0;
-always @(negedge clk_ram) ram_tog_n <= sys_tog;
-always @(posedge clk_ram) ram_tog_p <= ram_tog_n;
-wire ram_mid = ram_tog_n ^ ram_tog_p;
 
 sdram sdram
 (

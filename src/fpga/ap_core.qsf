@@ -788,6 +788,19 @@ set_instance_assignment -name FAST_INPUT_REGISTER ON -to sram_dq[*]
 # Keep fb_sram's clock-crossing input registers where they are (retiming moved them and broke hold)
 set_instance_assignment -name PHYSICAL_SYNTHESIS_REGISTER_RETIMING OFF -to "core_top:ic|s32x_system:system|fb_sram:fb_sram"
 set_instance_assignment -name PHYSICAL_SYNTHESIS_REGISTER_RETIMING OFF -to "core_top:ic|s32x_system:system|sdram:sdram"
+# SDRAM pin registers in the I/O cells, as MiSTer's sys.tcl does for the same sdram.sv. Without
+# these the fitter places them freely and the (unconstrained) pin timing changes from build to
+# build: bc7ce5c, which turned retiming off above, blanked every game on hardware.
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to dram_a[*]
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to dram_ba[*]
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to dram_dqm[*]
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to dram_ras_n
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to dram_cas_n
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to dram_we_n
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to dram_dq[*]
+set_instance_assignment -name FAST_OUTPUT_ENABLE_REGISTER ON -to dram_dq[*]
+set_instance_assignment -name FAST_INPUT_REGISTER ON -to dram_dq[*]
+set_instance_assignment -name ALLOW_SYNCH_CTRL_USAGE OFF -to *|SDRAM_*
 set_global_assignment -name SIGNALTAP_FILE core/stp1.stp
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to bridge_1wire
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to bridge_spiclk
