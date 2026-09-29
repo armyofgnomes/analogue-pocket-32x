@@ -371,6 +371,28 @@ always @(posedge clk_sys) begin
 	end
 end
 
+// Per-frame video timing check: Genesis resolution, active pixels per line by the Genesis's own
+// timing (GEN_DOT_CE/GEN_HBLANK) and by the 32X's (ce_pix/hblank, what the Pocket formatter uses),
+// and the offset of the Genesis active area inside the 32X active area (in 32X dots).
+int vt_gen_px = 0, vt_s32_px = 0, vt_off = -1, vt_line = 0;
+reg vt_old_vbl = 1;
+always @(posedge clk_sys) begin
+	if (dut.GEN_DOT_CE && !dut.GEN_HBLANK && !vblank) vt_gen_px++;
+	if (ce_pix && !hblank && !vblank) begin
+		if (vt_off < 0 && !dut.GEN_HBLANK) vt_off = vt_s32_px;
+		vt_s32_px++;
+	end
+	if (ce_pix && hblank && vt_s32_px) begin
+		vt_line++;
+		if (vt_line == 100)
+			$display("%t VTIME res=%b gen_px=%0d s32x_px=%0d gen_starts_at=%0d", $realtime,
+			         dut.gen_resolution, vt_gen_px, vt_s32_px, vt_off);
+		vt_gen_px = 0; vt_s32_px = 0; vt_off = -1;
+	end
+	vt_old_vbl <= vblank;
+	if (vblank && !vt_old_vbl) vt_line = 0;
+end
+
 // Master SH-2 register-file writes every clock in [rf_start, rf_end] ns (+rf_start/+rf_end, ACC=1)
 real rf_start = -1, rf_end = -1;
 initial begin

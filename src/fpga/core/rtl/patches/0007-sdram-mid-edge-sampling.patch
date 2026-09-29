@@ -8,24 +8,45 @@
  
  	input      [24:1] addr0,
  	input             rd0,
-@@ -110,18 +111,26 @@
+@@ -106,22 +107,46 @@
+ 
+ localparam [9:0] RFS_CNT = 766;
+ 
++// Pocket: requests come from the clk_sys domain (half this clock). Each mid edge (the edge in the
++// middle of the clk_sys cycle; the other one would only re-sample them under a zero-margin hold
++// check, see core_constraints.sdc) copies every port's inputs into plain registers, with no logic
++// in front of them: the address/data paths from the requesters are long (68K bus arbiter, cart
++// mapper) and only have half a clk_sys cycle. Requests are recognized from these registers on the
++// next edge. busy covers a sampled request that isn't recognized yet, so it rises at the same time
++// as before (after the mid edge).
++reg  [3:0] old_rd = 0, old_wr = 0;
++reg  [3:0] rd_q = 0, wr_q = 0;			// rd/wr as of the latest mid edge
++reg [24:1] a_q[4];
++reg [15:0] d_q[4];
++reg  [1:0] w_q[4];
++reg        mid_d = 0;					// the edge after a mid edge: recognize requests
++
+ // access manager
  always @(posedge clk) begin
  	reg  [9:0] rfs_timer = 0;
- 	reg  [3:0] old_rd, old_wr;
-+	reg  [3:0] rd_q, wr_q;			// Pocket: rd/wr as of the latest mid edge
+-	reg  [3:0] old_rd, old_wr;
  	reg [15:0] dout;
  	reg        data_out = 0;
  
 -	old_rd <= old_rd & rd;
 -	old_wr <= old_wr & wr;
-+	// Pocket: requests come from the clk_sys domain (half this clock) and are sampled only on the
-+	// edge in mid clk_sys cycle; the edge coinciding with clk_sys would only re-sample them under a
-+	// zero-margin hold check (see core_constraints.sdc).
++	mid_d <= mid;
 +	if (mid) begin
 +		rd_q <= rd;
 +		wr_q <= wr;
-+		old_rd <= old_rd & rd;
-+		old_wr <= old_wr & wr;
++		a_q[0] <= addr0; d_q[0] <= din0; w_q[0] <= wr0;
++		a_q[1] <= addr1; d_q[1] <= din1; w_q[1] <= wr1;
++		a_q[2] <= addr2; d_q[2] <= din2; w_q[2] <= wr2;
++		a_q[3] <= addr3; d_q[3] <= din3; w_q[3] <= wr3;
++	end
++	if (mid_d) begin
++		old_rd <= old_rd & rd_q;
++		old_wr <= old_wr & wr_q;
 +	end
  
  	if(rfs_timer) rfs_timer <= rfs_timer - 1'd1;
@@ -34,14 +55,14 @@
 -	if ((~old_rd[1] && rd[1]) || (~old_wr[1] && wr[1])) begin ch_req[1] <= 1; ch_pend[1] <= 1; ch_addr[1] <= addr1; ch_din[1] <= din1; ch_wr[1] <= wr1; end
 -	if ((~old_rd[2] && rd[2]) || (~old_wr[2] && wr[2])) begin ch_req[2] <= 1; ch_pend[2] <= 1; ch_addr[2] <= addr2; ch_din[2] <= din2; ch_wr[2] <= wr2; end
 -	if ((~old_rd[3] && rd[3]) || (~old_wr[3] && wr[3])) begin ch_req[3] <= 1; ch_pend[3] <= 1; ch_addr[3] <= addr3; ch_din[3] <= din3; ch_wr[3] <= wr3; end
-+	if (mid && ((~old_rd[0] && rd[0]) || (~old_wr[0] && wr[0]))) begin ch_req[0] <= 1; ch_pend[0] <= 1; ch_addr[0] <= addr0; ch_din[0] <= din0; ch_wr[0] <= wr0; end
-+	if (mid && ((~old_rd[1] && rd[1]) || (~old_wr[1] && wr[1]))) begin ch_req[1] <= 1; ch_pend[1] <= 1; ch_addr[1] <= addr1; ch_din[1] <= din1; ch_wr[1] <= wr1; end
-+	if (mid && ((~old_rd[2] && rd[2]) || (~old_wr[2] && wr[2]))) begin ch_req[2] <= 1; ch_pend[2] <= 1; ch_addr[2] <= addr2; ch_din[2] <= din2; ch_wr[2] <= wr2; end
-+	if (mid && ((~old_rd[3] && rd[3]) || (~old_wr[3] && wr[3]))) begin ch_req[3] <= 1; ch_pend[3] <= 1; ch_addr[3] <= addr3; ch_din[3] <= din3; ch_wr[3] <= wr3; end
++	if (mid_d && ((~old_rd[0] && rd_q[0]) || (~old_wr[0] && wr_q[0]))) begin ch_req[0] <= 1; ch_pend[0] <= 1; ch_addr[0] <= a_q[0]; ch_din[0] <= d_q[0]; ch_wr[0] <= w_q[0]; end
++	if (mid_d && ((~old_rd[1] && rd_q[1]) || (~old_wr[1] && wr_q[1]))) begin ch_req[1] <= 1; ch_pend[1] <= 1; ch_addr[1] <= a_q[1]; ch_din[1] <= d_q[1]; ch_wr[1] <= w_q[1]; end
++	if (mid_d && ((~old_rd[2] && rd_q[2]) || (~old_wr[2] && wr_q[2]))) begin ch_req[2] <= 1; ch_pend[2] <= 1; ch_addr[2] <= a_q[2]; ch_din[2] <= d_q[2]; ch_wr[2] <= w_q[2]; end
++	if (mid_d && ((~old_rd[3] && rd_q[3]) || (~old_wr[3] && wr_q[3]))) begin ch_req[3] <= 1; ch_pend[3] <= 1; ch_addr[3] <= a_q[3]; ch_din[3] <= d_q[3]; ch_wr[3] <= w_q[3]; end
  
  	if(state == STATE_IDLE && mode == MODE_NORMAL) begin
  		if (!rfs_timer) begin
-@@ -132,8 +141,8 @@
+@@ -132,8 +157,8 @@
  			state <= STATE_START;
  		end
  		else if (ch_pend[0]) begin
@@ -52,7 +73,7 @@
  			{ba, a} <= ch_addr[0];
  			data <= ch_din[0];
  			we <= |ch_wr[0];
-@@ -144,8 +153,8 @@
+@@ -144,8 +169,8 @@
  			ch_n <= 0; 
  		end
  		else if (ch_pend[1]) begin
@@ -63,7 +84,7 @@
  			{ba, a} <= ch_addr[1];
  			data <= ch_din[1];
  			we <= |ch_wr[1];
-@@ -156,8 +165,8 @@
+@@ -156,8 +181,8 @@
  			ch_n <= 1; 
  		end
  		else if (ch_pend[2]) begin
@@ -74,7 +95,7 @@
  			{ba, a} <= ch_addr[2];
  			data <= ch_din[2];
  			we <= |ch_wr[2];
-@@ -168,8 +177,8 @@
+@@ -168,8 +193,8 @@
  			ch_n <= 2; 
  		end
  		else if (ch_pend[3]) begin
@@ -85,3 +106,19 @@
  			{ba, a} <= ch_addr[3];
  			data <= ch_din[3];
  			we <= |ch_wr[3];
+@@ -203,10 +228,11 @@
+ 	end
+ end
+ 
+-assign busy0 = ch_req[0];
+-assign busy1 = ch_req[1];
+-assign busy2 = ch_req[2];
+-assign busy3 = ch_req[3];
++wire [3:0] req_sampled = (rd_q & ~old_rd) | (wr_q & ~old_wr);	// Pocket: sampled, not yet taken
++assign busy0 = ch_req[0] | req_sampled[0];
++assign busy1 = ch_req[1] | req_sampled[1];
++assign busy2 = ch_req[2] | req_sampled[2];
++assign busy3 = ch_req[3] | req_sampled[3];
+ 
+ 
+ localparam MODE_NORMAL = 2'b00;

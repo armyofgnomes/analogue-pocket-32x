@@ -20,7 +20,29 @@ Latest Pocket build: **6a7d9cb** (SDRAM pins in I/O cells). Hardware results for
 
 No Pocket build is pending. The next build comes after the cause below is found and fixed.
 
-## Current lead: Kolibri's slave SH-2 jumps to garbage after the BIOS hands off
+## Found (2026-09-29): 32-bit SH-2 accesses to the 32X SDRAM returned the first half twice
+
+The slave bus log (`+slog_ms`) showed the slave reading its header correctly (VBR 0x06000000,
+entry 0x06000120), writing "S_OK" and jumping to 0x06000120. Then its reads from the 32X SDRAM
+came back with the same 16-bit half twice (`0x06000124 -> d116d116`, `0x06000184 -> 534c534c`),
+a literal load sent it to 0x4F224F22, and the exception vector (0x06000010 read as 0x00002010) put
+it at 0x2010/0x2014.
+
+Cause: our port-0 adapter in `s32x_system.sv` (953f26c) issued one SDRAM request per assertion of
+CS3 and RD/WE. The SH-2 does a 32-bit access to the 16-bit SDRAM as two 16-bit bus cycles with CS3
+and RD held across both; only the address changes. So the second half never reached the SDRAM
+and returned the first half's data. Fix: a change of address or direction while the request is
+held is a new access (the port request drops for one clk_sys cycle, WAIT stays asserted). This can
+break any code running from the 32X SDRAM on either CPU, which fits the broad hardware failures.
+Pocket build ready (see test log); full-system verification run pending.
+
+The first build with this fix missed setup by 0.38 ns on SDRAM port 1 (68K bus arbiter through the
+cart mapper into `sdram.sv`'s request registers, half a clk_sys cycle). Patch 0007 now copies every
+port's inputs into plain registers on the mid edge and recognizes requests one edge later; those
+paths have +1.36 ns. The tightest path is now the mid-edge detector (falling-edge `ram_tog_n` into
+fb_sram's pending flags, a quarter cycle) at about +0.05-0.14 ns.
+
+## Earlier lead (resolved above): Kolibri's slave SH-2 jumps to garbage after the BIOS hands off
 
 With the simulator fixed (see below), `sim/system` reproduces a failure for Kolibri:
 

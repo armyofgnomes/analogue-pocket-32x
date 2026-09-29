@@ -434,21 +434,29 @@ S32X #(
 
 // 32X SDRAM (256 KB) on sdram.sv port 0 at 0x1000000.
 //
-// The SH-2 bus WAIT inside the 32X is global (32X.sv: SHWAIT_N = IF_WAIT_N & ~SDR_WAIT), so an
-// SDRAM access still in progress must not assert WAIT during the SH-2's next, unrelated bus cycle
-// (e.g. a boot ROM fetch): full-system simulation showed exactly that corrupting the master SH-2's
-// register reads in its BIOS SDRAM test. On a real 32X, SDRAM never waits outside its own cycles.
-// sdram.sv's port is edge-triggered with a per-request busy, so requests are also serialized: a new
-// access is presented only after the previous one has completed, and stays asserted (one edge)
-// until the SH-2 ends the bus cycle.
+// The SH-2 bus WAIT inside the 32X is global (32X.sv: SHWAIT_N = IF_WAIT_N & ~SDR_WAIT), so WAIT
+// is only asserted during an SDRAM access, from the request until its data/write is done.
+// sdram.sv's port is edge-triggered with a per-request busy, so accesses are serialized: one is
+// presented only after the previous one has completed.
+//
+// The SH-2 makes a 32-bit access to this 16-bit memory as two 16-bit bus cycles and keeps CS3 and
+// RD (or the write strobes) asserted across both; only the address (and for writes the byte
+// enables) change. So an access is identified by its address and direction, not by the strobes:
+// when they change while the request is held, the port request drops for one clk_sys cycle (one
+// mid clk_ram edge, so sdram.sv sees the falling edge) and the new access is issued. Without this
+// the second half returned the first half's data (full-system sim: the slave SH-2 read its code
+// as d116d116, e000e000, ... and crashed right after the BIOS handed over to the game).
 wire        s32x_req_rd = S32X_SDR_CS & S32X_SDR_RD;
 wire  [1:0] s32x_req_wr = S32X_SDR_WE & {2{S32X_SDR_CS}};
 wire        s32x_req    = s32x_req_rd | (|s32x_req_wr);
 reg         s32x_issued = 0;
 reg         s32x_p_rd = 0;
 reg   [1:0] s32x_p_wr = 0;
+reg  [19:0] s32x_key = 0;                                    // address and direction issued
+wire [19:0] s32x_cur_key = {S32X_SDR_A, s32x_req_rd, s32x_req_wr};
+wire        s32x_new_acc = s32x_issued && (s32x_cur_key != s32x_key);
 always @(posedge clk_sys) begin
-	if (!s32x_req) begin
+	if (!s32x_req || s32x_new_acc) begin
 		s32x_issued <= 0;
 		s32x_p_rd   <= 0;
 		s32x_p_wr   <= 0;
@@ -457,6 +465,7 @@ always @(posedge clk_sys) begin
 		s32x_issued <= 1;
 		s32x_p_rd   <= s32x_req_rd;
 		s32x_p_wr   <= s32x_req_wr;
+		s32x_key    <= s32x_cur_key;
 	end
 end
 // WAIT only during an SDRAM cycle, from the request until its completion.
@@ -527,7 +536,7 @@ assign s32x_sdr_wait = 1'b0;
 assign s32x_sdr_di   = sdr_do[0];
 assign s32x_fb0_di   = FB0_DI;
 assign s32x_fb1_di   = FB1_DI;
-assign s32x_sdr_wait = s32x_req & (~s32x_issued | sdr_busy[0]);
+assign s32x_sdr_wait = s32x_req & (~s32x_issued | s32x_new_acc | sdr_busy[0]);
 `endif
 
 assign s32x_sdr_addr = {7'b1000000, S32X_SDR_A};
