@@ -4,9 +4,9 @@
 //
 // The ROM image (+rom=<path>, never committed) is preloaded into the SDRAM model directly; only the
 // header and the last word go through the real loader port, so ROM size and region detection run
-// as on hardware. Each video frame is written to frame_NNN.ppm in the run directory.
+// as on hardware. Each video frame is written to frame_N.ppm in the run directory.
 //
-// Plusargs: +rom=<file>  +frames=<n> (default 3)  +trace (bus/CPU milestones)
+// Plusargs: +rom=<file>  +frames=<n> (default 3)  +trace (bus/CPU milestones)  +stop_ms=<n>
 `timescale 1ns/1ps
 
 module tb_system;
@@ -138,7 +138,7 @@ always @(posedge clk_sys) begin
 			frame++;
 			if (frame >= frames_max) begin $display("DONE"); $finish; end
 		end
-		fd_img = $fopen($sformatf("frame_%03d.ppm", frame), "wb");
+		fd_img = $fopen($sformatf("frame_%0d.ppm", frame), "wb");
 		// Fixed 320x224 header; actual size is printed above (H32 would be 256 wide).
 		$fwrite(fd_img, "P6\n%0d %0d\n255\n", 320, 224);
 		y = 0;
@@ -159,9 +159,52 @@ always @(posedge clk_sys) if (trace) begin
 end
 always @(posedge clk_ram) if (trace && (dut.s32x_sdr_rd || |dut.s32x_sdr_wr)) n_sdr++;
 
+int n_clkenp = 0;
+always @(posedge clk_sys) if (trace && dut.gen.ba.M68K_CLKENp === 1'b1) n_clkenp++;
+
+// First 68K bus cycles (+trace): address strobe, acknowledge, and the cart/SDRAM handshake
+int n_bus = 0;
+reg old_as = 1;
+realtime t_as;
+always @(posedge clk_sys) if (trace) begin
+	old_as <= dut.GEN_AS_N;
+	if (old_as && !dut.GEN_AS_N) t_as = $realtime;
+	if (!old_as && dut.GEN_AS_N && n_bus < 24) begin
+		n_bus++;
+		$display("%t 68K bus cycle %0d: A=%06h took %0.0f ns", $realtime, n_bus, {dut.GEN_VA, 1'b0}, $realtime - t_as);
+	end
+end
+// A bus cycle stuck for > 20 us: show the handshake signals
+always @(posedge clk_sys) if (trace && !dut.GEN_AS_N && $realtime - t_as > 20000.0 && $realtime - t_as < 20000.0 + T_SYS) begin
+	$display("%t STUCK 68K cycle at A=%06h: S32X_DTACK_N=%b CART_DTACK_N=%b CE0_N=%b ROM_RD=%b busy1=%b RAS2_N=%b ADEN=%b",
+	         $realtime, {dut.GEN_VA, 1'b0}, dut.S32X_DTACK_N, dut.CART_DTACK_N, dut.GEN_CE0_N,
+	         dut.CART_ROM_RD, dut.sdr_busy[1], dut.GEN_RAS2_N, dut.S32X.s32x_if.ADCR.ADEN);
+	$display("    BA: mstate=%0d msrc=%0d MEM_RDY=%b M68K_MBUS_DTACK_N=%b CLKENp pulses so far %0d, ENABLE=%b RST_N=%b",
+	         dut.gen.ba.mstate, dut.gen.ba.msrc, dut.gen.MEM_RDY, dut.gen.ba.M68K_MBUS_DTACK_N,
+	         n_clkenp, dut.gen.ba.ENABLE, dut.gen.ba.RST_N);
+end
+
+// 32X adapter state (68K-side register A15100): ADEN = 32X enabled, RES = SH-2s released from
+// reset, FM = framebuffer access (0: 68K, 1: SH-2)
+reg [2:0] old_adcr = 3'bxxx;
+int n_msh_cs0 = 0, n_ssh_cs0 = 0;
+always @(posedge clk_sys) if (trace) begin
+	automatic logic [2:0] adcr = {dut.S32X.s32x_if.ADCR.ADEN, dut.S32X.s32x_if.ADCR.RES, dut.S32X.s32x_if.ADCR.FM};
+	if (adcr !== old_adcr)
+		$display("%t 32X adapter: ADEN=%b RES=%b FM=%b (68K at %06h)", $realtime, adcr[2], adcr[1], adcr[0],
+		         {dut.gen.M68K_A, 1'b0});
+	old_adcr <= adcr;
+	if (!dut.S32X.SHCS0M_N) n_msh_cs0++;
+	if (!dut.S32X.SHCS0S_N) n_ssh_cs0++;
+end
+
 initial begin
 	trace = $test$plusargs("trace");
 	void'($value$plusargs("frames=%d", frames_max));
+	begin : stop_timer
+		int stop_ms;
+		if ($value$plusargs("stop_ms=%d", stop_ms)) fork begin #(stop_ms * 1ms); $display("STOP at %0d ms", stop_ms); $finish; end join_none
+	end
 	if (!$value$plusargs("rom=%s", rom_path)) begin $display("ERROR: +rom=<file> required"); $finish; end
 	load_rom(rom_path);
 
@@ -182,8 +225,8 @@ end
 // Progress report every ~5 ms of simulated time
 always begin
 	#(5ms);
-	$display("%t progress: frame %0d line %0d, FB writes %0d, 32X SDRAM accesses %0d, FS=%b",
-	         $realtime, frame, y, n_fb_wr, n_sdr, dut.FB_FS);
+	$display("%t progress: frame %0d line %0d, 68K at %06h, SH-2 CS0 cycles M/S %0d/%0d, FB writes %0d, 32X SDRAM accesses %0d, FS=%b",
+	         $realtime, frame, y, {dut.gen.M68K_A, 1'b0}, n_msh_cs0, n_ssh_cs0, n_fb_wr, n_sdr, dut.FB_FS);
 end
 
 endmodule

@@ -32,4 +32,11 @@ fi
 mkdir -p core
 ln -sfn "$repo/src/fpga/core/bios_mif" core/bios_mif
 cp -f "$repo"/src/fpga/core/rtl/S32X_MiSTer/rtl/FX68K/*.mem .
-"$Q/vsim" -c -quiet -suppress 7063,7061,10000 -L "$INTEL/verilog/altera_mf" -L altera_mf tb_system "$@" -do "run -all; quit -f"
+# ACC=1 keeps full signal visibility for diagnostics (slower)
+# +initreg+0: every register starts at 0, like FPGA power-up (upstream has many registers
+# without a reset, e.g. the Genesis bus arbiter's refresh timers, which would stay X otherwise).
+vopt="+initreg+0"
+[ "${ACC:-0}" = 1 ] && vopt="$vopt +acc"
+acc=(-voptargs="$vopt")
+"$Q/vsim" -c -quiet ${acc[@]+"${acc[@]}"} -suppress 7063,7061,10000 -L "$INTEL/verilog/altera_mf" -L altera_mf tb_system "$@" \
+    -do "set NumericStdNoWarnings 1; set StdArithNoWarnings 1; run -all; quit -f"

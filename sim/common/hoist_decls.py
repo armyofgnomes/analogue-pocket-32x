@@ -113,6 +113,7 @@ def rewrite(text):
         body, cbody = text[body_start:body_end], clean[body_start:body_end]
 
         hoisted, new_body, ports, params = [], [], [], []
+        local_inits = []
         depth = 0
         stmt_start = 0
         i = 0
@@ -126,6 +127,23 @@ def rewrite(text):
                 if depth == 0:
                     stmt_start = t.end()
             elif tok == ';':
+                if depth > 0:
+                    # Block-local variable without an initializer (e.g. reg [1:0] cnt; inside an
+                    # always block): initialize to 0 like FPGA power-up. Static, so this happens
+                    # once at time 0. Skipped for arrays, automatic variables and nets.
+                    sstart = max(cbody.rfind(';', 0, t.start()), cbody.rfind('\n', 0, t.start()))
+                    line_c = cbody[sstart + 1:t.end()]
+                    mloc = re.match(r'^\s*(?:begin\b.*?)?\s*(reg|bit|logic)\b([^=;()]*);\s*$', line_c)
+                    if mloc and 'automatic' not in line_c and not re.search(r'\w\s*\[', mloc.group(2).strip()):
+                        names = mloc.group(2)
+                        # 'reg [1:0] a, b' -> 'reg [1:0] a = 0, b = 0'
+                        lead_rng = re.match(r'\s*((?:signed\s*)?(?:\[[^\]]*\]\s*)*)', names)
+                        rng = lead_rng.group(1)
+                        ids = [x.strip() for x in names[lead_rng.end():].split(',') if x.strip()]
+                        if ids and all(re.fullmatch(r'\w+', x) for x in ids):
+                            new_decl = mloc.group(1) + ' ' + rng + ', '.join(f'{x} = 0' for x in ids) + ';'
+                            abs_start = sstart + 1 + line_c.index(mloc.group(1))
+                            local_inits.append((abs_start, t.end(), new_decl))
                 if depth == 0:
                     stmt = body[stmt_start:t.end()]
                     cstmt = cbody[stmt_start:t.end()]
@@ -167,6 +185,13 @@ def rewrite(text):
                     i = t.end()
                     stmt_start = t.end()
         new_body.append(body[i:])
+        body_out = ''.join(new_body)
+        # Apply block-local initializers (they sit inside nested blocks, which the depth-0 pass
+        # copied verbatim, so the same text is present in body_out).
+        for st, en, new in sorted(local_inits, reverse=True):
+            old = body[st:en]
+            body_out = body_out.replace(old, new, 1) if old in body_out else body_out
+        new_body = [body_out]
         result.append(text[pos:body_start])
         if hoisted or ports or params:
             result.append('\n// ---- hoisted declarations (sim only) ----\n' + '\n'.join(params + ports + hoisted) + '\n')
