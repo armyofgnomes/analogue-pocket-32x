@@ -10,10 +10,19 @@
 // Each pass writes a pattern over the whole region, reads it back and compares, then repeats
 // with a different pattern (including byte-lane writes on the SRAM).
 //
+// SRAM timing sweep: after each full SRAM pass (both framebuffers) the fb_sram access timing
+// moves to the next of 8 settings (read capture / WE width, see SWEEP_RD / SWEEP_WE), and the
+// result is latched per setting. Requests are held for HOLD cycles (longer than the VDP's 6) so
+// slow settings are judged on the memory, not on VDP deadlines.
+//
 // All in clk_sys.
 //
 
 module memtest
+#(
+	parameter AW   = 16,       // framebuffer words tested per buffer = 2^AW (16 = whole buffer)
+	parameter HOLD = 6'd40     // cycles each framebuffer request is held
+)
 (
 	input             clk,
 	input             reset,
@@ -30,6 +39,8 @@ module memtest
 	output reg        FB1_RD,
 	input      [15:0] FB1_DI,
 	output reg        FB_FS,
+	output      [3:0] cfg_rd,
+	output      [3:0] cfg_we,
 
 	// sdram.sv port 0
 	output reg [24:1] sdr_addr,
@@ -41,7 +52,10 @@ module memtest
 
 	// Status (for the on-screen overlay)
 	output reg [15:0] sram_passes,
-	output reg        sram_fail,
+	output reg        sram_fail,        // any setting failed
+	output reg  [7:0] sweep_done,       // setting k completed at least one pass
+	output reg  [7:0] sweep_fail,       // setting k failed at least once
+	output reg  [2:0] sweep_cur,
 	output reg [15:0] sdram_passes,
 	output reg        sdram_fail
 );
@@ -54,21 +68,29 @@ endfunction
 ///////////////////////////////////////////////////////////////////////////////
 // SRAM via fb_sram
 
+// Sweep settings in clk_ram cycles (9.3 ns): read capture 28..140 ns, WE low 19..130 ns.
+localparam [31:0] SWEEP_RD = {4'd15, 4'd11, 4'd8, 4'd7, 4'd6, 4'd5, 4'd4, 4'd3};
+localparam [31:0] SWEEP_WE = {4'd14, 4'd9,  4'd7, 4'd6, 4'd5, 4'd4, 4'd3, 4'd2};
+assign cfg_rd = SWEEP_RD[sweep_cur*4 +: 4];
+assign cfg_we = SWEEP_WE[sweep_cur*4 +: 4];
+
 localparam S_WRITE = 2'd0, S_BYTES = 2'd1, S_READ = 2'd2;
 reg  [1:0] s_phase;
-reg [15:0] s_addr;
-reg  [2:0] s_cnt;
+reg [AW-1:0] s_addr;
+reg  [5:0] s_cnt;
+reg        s_pass_fail;
 reg        s_busy;
 reg  [3:0] disp_div;
 
 // FB_FS = 1: FB0 is the draw buffer (tested), FB1 is displayed; and vice versa.
-wire [16:0] s_full = {~FB_FS, s_addr};   // SRAM word being tested
+wire [16:0] s_full = {~FB_FS, 16'(s_addr)};   // SRAM word being tested
 
 always @(posedge clk) begin
 	if (reset) begin
 		s_phase <= S_WRITE; s_addr <= 0; s_cnt <= 0; s_busy <= 0;
 		FB_FS <= 1;
 		sram_passes <= 0; sram_fail <= 0;
+		sweep_done <= 0; sweep_fail <= 0; sweep_cur <= 0; s_pass_fail <= 0;
 		FB0_WE <= 0; FB1_WE <= 0; FB0_RD <= 0; FB1_RD <= 0;
 		disp_div <= 0;
 	end
@@ -85,7 +107,7 @@ always @(posedge clk) begin
 
 		if (!s_busy) begin
 			s_busy <= 1;
-			s_cnt  <= 3'd6;
+			s_cnt  <= HOLD;
 			case (s_phase)
 				S_WRITE, S_BYTES: begin
 					// S_WRITE: full words. S_BYTES: overwrite one byte lane with the next pass's
@@ -111,28 +133,37 @@ always @(posedge clk) begin
 		else begin
 			s_cnt <= s_cnt - 1'd1;
 			if (s_cnt == 1) begin
-				// End of the 6-cycle hold: drop the strobes (1-cycle gap, like the VDP FIFO).
+				// End of the hold: drop the strobes (1-cycle gap, like the VDP FIFO).
 				FB0_WE <= 0; FB1_WE <= 0;
 				if (FB_FS) FB0_RD <= 0; else FB1_RD <= 0;
 			end
 			if (s_cnt == 0) begin
+				// Expected read data: S_BYTES replaced one lane with the next pass's pattern.
+				automatic logic [15:0] p0  = pattern(s_full, sram_passes);
+				automatic logic [15:0] p1  = pattern(s_full, sram_passes + 1'd1);
+				automatic logic [15:0] exp = s_addr[0] ? {p1[15:8], p0[7:0]} : {p0[15:8], p1[7:0]};
+				automatic logic        bad = (s_phase == S_READ) && ((FB_FS ? FB0_DI : FB1_DI) != exp);
 				s_busy <= 0;
-				if (s_phase == S_READ) begin
-					// Expected: S_BYTES replaced one lane with the next pass's pattern.
-					automatic logic [15:0] p0 = pattern(s_full, sram_passes);
-					automatic logic [15:0] p1 = pattern(s_full, sram_passes + 1'd1);
-					automatic logic [15:0] exp = s_addr[0] ? {p1[15:8], p0[7:0]} : {p0[15:8], p1[7:0]};
-					if ((FB_FS ? FB0_DI : FB1_DI) != exp) sram_fail <= 1;
+				if (bad) begin
+					sram_fail   <= 1;
+					s_pass_fail <= 1;
 				end
 				s_addr <= s_addr + 1'd1;
-				if (s_addr == 16'hFFFF) begin
+				if (&s_addr) begin
 					case (s_phase)
 						S_WRITE: s_phase <= S_BYTES;
 						S_BYTES: s_phase <= S_READ;
 						default: begin
 							s_phase <= S_WRITE;
 							FB_FS <= ~FB_FS;
-							if (!FB_FS) sram_passes <= sram_passes + 1'd1;
+							if (!FB_FS) begin
+								// Both framebuffers done at this setting: record it and move on.
+								sram_passes <= sram_passes + 1'd1;
+								sweep_done[sweep_cur] <= 1;
+								if (s_pass_fail || bad) sweep_fail[sweep_cur] <= 1;
+								s_pass_fail <= 0;
+								sweep_cur <= sweep_cur + 1'd1;
+							end
 						end
 					endcase
 				end

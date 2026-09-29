@@ -42,7 +42,7 @@ fb_sram dut (
 	.clk_ram(clk_ram), .reset(reset),
 	.FB0_A(FB_A[0]), .FB0_DO(FB_DO[0]), .FB0_WE(FB_WE[0]), .FB0_RD(FB_RD[0]), .FB0_DI(FB0_DI),
 	.FB1_A(FB_A[1]), .FB1_DO(FB_DO[1]), .FB1_WE(FB_WE[1]), .FB1_RD(FB_RD[1]), .FB1_DI(FB1_DI),
-	.FB_FS(fs_q),
+	.FB_FS(fs_q), .cfg_rd(4'd3), .cfg_we(4'd2),
 	.sram_a(sram_a), .sram_dq(sram_dq), .sram_oe_n(sram_oe_n), .sram_we_n(sram_we_n),
 	.sram_ub_n(sram_ub_n), .sram_lb_n(sram_lb_n)
 );
@@ -130,7 +130,7 @@ end
 realtime t_rd_req = -1, t_disp_req = -1;
 real     max_rd_lat = 0, max_disp_lat = 0;
 string   max_rd_ctx;
-always @(posedge clk_ram) if (dut.state == 3'd6) begin   // ST_RD3: capture this edge
+always @(posedge clk_ram) if (dut.state == 3'd1 && dut.cnt == 0) begin   // ST_RD, capture this edge
 	if (dstate == D_READ && t_rd_req >= 0 && dut.op_ch == draw_ch[0] && dut.op_a == rd_addr) begin
 		automatic real lat = ($realtime - t_rd_req) / T_SYS;
 		if (lat > max_rd_lat) begin

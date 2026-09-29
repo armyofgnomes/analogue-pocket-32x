@@ -1,7 +1,10 @@
 // Testbench for memtest.sv + fb_sram.sv (REQ-MEM-06): the self-test must pass on good memory
 // and must flag a failure when a fault is injected.
-//   +fault_sram   : SRAM data bit 5 stuck at 0 on writes
-//   +fault_sdram  : SDRAM model corrupts one word
+//   +fault_sram       : SRAM data bit 5 stuck at 0 on writes
+//   +fault_sdram      : SDRAM model corrupts one word
+//   +sram_taa=<ns>    : SRAM read access time (default 10)
+//   +sram_twp=<ns>    : SRAM minimum WE pulse; shorter pulses don't write (default 8)
+//   +expect_sweep=<hex>: expected sweep_fail mask after all 8 settings ran
 `timescale 1ns/1ps
 
 module tb_memtest;
@@ -26,15 +29,20 @@ reg  [15:0] sdr_dout;
 reg         sdr_busy = 0;
 wire [15:0] sram_passes, sdram_passes;
 wire        sram_fail, sdram_fail;
+wire  [3:0] cfg_rd, cfg_we;
+wire  [7:0] sweep_done, sweep_fail;
+wire  [2:0] sweep_cur;
 
-memtest mt (
+// Small region and short hold so a full 8-setting sweep simulates in reasonable time.
+memtest #(.AW(8), .HOLD(6'd40)) mt (
 	.clk(clk_sys), .reset(reset),
 	.FB0_A(FB0_A), .FB0_DO(FB0_DO), .FB0_WE(FB0_WE), .FB0_RD(FB0_RD), .FB0_DI(FB0_DI),
 	.FB1_A(FB1_A), .FB1_DO(FB1_DO), .FB1_WE(FB1_WE), .FB1_RD(FB1_RD), .FB1_DI(FB1_DI),
-	.FB_FS(FB_FS),
+	.FB_FS(FB_FS), .cfg_rd(cfg_rd), .cfg_we(cfg_we),
 	.sdr_addr(sdr_addr), .sdr_rd(sdr_rd), .sdr_wr(sdr_wr), .sdr_din(sdr_din),
 	.sdr_dout(sdr_dout), .sdr_busy(sdr_busy),
 	.sram_passes(sram_passes), .sram_fail(sram_fail),
+	.sweep_done(sweep_done), .sweep_fail(sweep_fail), .sweep_cur(sweep_cur),
 	.sdram_passes(sdram_passes), .sdram_fail(sdram_fail)
 );
 
@@ -42,16 +50,27 @@ fb_sram fb (
 	.clk_ram(clk_ram), .reset(reset),
 	.FB0_A(FB0_A), .FB0_DO(FB0_DO), .FB0_WE(FB0_WE), .FB0_RD(FB0_RD), .FB0_DI(FB0_DI),
 	.FB1_A(FB1_A), .FB1_DO(FB1_DO), .FB1_WE(FB1_WE), .FB1_RD(FB1_RD), .FB1_DI(FB1_DI),
-	.FB_FS(FB_FS),
+	.FB_FS(FB_FS), .cfg_rd(cfg_rd), .cfg_we(cfg_we),
 	.sram_a(sram_a), .sram_dq(sram_dq), .sram_oe_n(sram_oe_n), .sram_we_n(sram_we_n),
 	.sram_ub_n(sram_ub_n), .sram_lb_n(sram_lb_n)
 );
 
-// SRAM model (10 ns)
+// SRAM model: read data valid t_aa after the address (X before that), writes need a WE pulse of
+// at least t_wp.
 reg [15:0] mem [0:131071];
 bit fault_sram, fault_sdram;
-assign #(10.0) sram_dq = (!sram_oe_n && sram_we_n) ? mem[sram_a] : 16'hZZZZ;
-always @(posedge sram_we_n) begin
+real t_aa = 10.0, t_wp = 8.0;
+realtime a_time = 0, we_fall = 0;
+reg [15:0] rd_val;
+always @(sram_a) a_time = $realtime;
+// Before t_aa the bus carries garbage (random, not X: X would hide failures, since X != exp is X).
+always @* begin
+	rd_val = $urandom;
+	#(t_aa) rd_val = mem[sram_a];
+end
+assign sram_dq = (!sram_oe_n && sram_we_n) ? rd_val : 16'hZZZZ;
+always @(negedge sram_we_n) we_fall = $realtime;
+always @(posedge sram_we_n) if ($realtime - we_fall >= t_wp) begin
 	automatic logic [15:0] d = sram_dq;
 	if (fault_sram) d[5] = 0;
 	if (!sram_ub_n) mem[sram_a][15:8] = d[15:8];
@@ -80,20 +99,28 @@ end
 initial begin
 	fault_sram  = $test$plusargs("fault_sram");
 	fault_sdram = $test$plusargs("fault_sdram");
+	void'($value$plusargs("sram_taa=%f", t_aa));
+	void'($value$plusargs("sram_twp=%f", t_wp));
 	repeat (10) @(posedge clk_sys);
 	reset = 0;
-	// Two full SRAM passes (both framebuffers) and two SDRAM passes, or a timeout.
+	// All 8 sweep settings and two SDRAM passes, or a timeout.
 	fork
-		wait (sram_passes >= 2 && sdram_passes >= 2);
-		#(200ms);
+		wait (sweep_done == 8'hFF && sdram_passes >= 2);
+		#(400ms);
 	join_any
-	$display("sram passes %0d fail %b, sdram passes %0d fail %b", sram_passes, sram_fail, sdram_passes, sdram_fail);
-	if (fault_sram || fault_sdram) begin
+	$display("sweep done %b fail %b, sdram passes %0d fail %b", sweep_done, sweep_fail, sdram_passes, sdram_fail);
+	if ($test$plusargs("expect_sweep")) begin : check_sweep
+		bit [7:0] expect_mask;
+		void'($value$plusargs("expect_sweep=%h", expect_mask));
+		if (sweep_done == 8'hFF && sweep_fail == expect_mask && !sdram_fail) $display("PASS");
+		else $display("FAIL: expected sweep_fail %b", expect_mask);
+	end
+	else if (fault_sram || fault_sdram) begin
 		if ((fault_sram && !sram_fail) || (fault_sdram && !sdram_fail)) $display("FAIL: injected fault not detected");
 		else if ((!fault_sram && sram_fail) || (!fault_sdram && sdram_fail)) $display("FAIL: false alarm on the good memory");
 		else $display("PASS");
 	end else begin
-		if (sram_passes >= 2 && sdram_passes >= 2 && !sram_fail && !sdram_fail) $display("PASS");
+		if (sweep_done == 8'hFF && sdram_passes >= 2 && !sram_fail && !sdram_fail) $display("PASS");
 		else $display("FAIL");
 	end
 	$finish;

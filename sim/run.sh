@@ -10,12 +10,15 @@ repo=$(cd "$(dirname "$0")/.." && pwd)
 QUESTA_BIN=${QUESTA_BIN:-$HOME/altera_lite/25.1std/questa_fse/bin}
 export SALT_LICENSE_SERVER=${SALT_LICENSE_SERVER:-$HOME/.altera.quartus/questa_lic.dat}
 
+# Optional per-bench preparation step
+if [ -x "$repo/sim/$bench/prep.sh" ]; then "$repo/sim/$bench/prep.sh"; fi
+
 work=$repo/build/sim/$bench
 mkdir -p "$work"
 cd "$work"
 rm -rf work
 "$QUESTA_BIN/vlib" work >/dev/null
 files=$(sed -e 's/#.*//' -e '/^\s*$/d' "$repo/sim/$bench/files.f" | sed "s#^#$repo/#")
-"$QUESTA_BIN/vlog" -sv -quiet ${VLOG_DEFS:-} $files "$repo/sim/$bench/tb_$bench.sv"
-"$QUESTA_BIN/vsim" -c -quiet ${VSIM_ARGS:-} "tb_$bench" -do "run -all; quit -f" | tee sim.log | grep -vE "^# (Loading|//)"
+"$QUESTA_BIN/vlog" -sv -quiet -L "$QUESTA_BIN/../intel/verilog/altera_mf" ${VLOG_DEFS:-} $files "$repo/sim/$bench/tb_$bench.sv"
+"$QUESTA_BIN/vsim" -c -quiet -L "$QUESTA_BIN/../intel/verilog/altera_mf" ${VSIM_ARGS:-} "tb_$bench" -do "run -all; quit -f" | tee sim.log | grep -vE "^# (Loading|//)"
 grep -q "^# PASS" sim.log

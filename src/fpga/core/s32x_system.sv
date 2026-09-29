@@ -67,8 +67,8 @@ module s32x_system
 	output        SRAM_LB_N,
 
 	// Memory self-test status (MEMTEST builds; zero otherwise):
-	// {sdram_fail, sdram_passes[15:0], sram_fail, sram_passes[15:0]}
-	output [33:0] memtest_status
+	// {sdram_fail, sdram_passes[15:0], sweep_fail[7:0], sweep_done[7:0], sweep_cur[2:0]}
+	output [35:0] memtest_status
 );
 
 ///////////////////////////////////////////////////
@@ -329,6 +329,7 @@ CART cart
 wire [15:0] FB0_A, FB0_DO, FB0_DI, FB1_A, FB1_DO, FB1_DI;
 wire  [1:0] FB0_WE, FB1_WE;
 wire        FB0_RD, FB1_RD, FB_FS;
+wire  [3:0] fb_cfg_rd, fb_cfg_we;
 
 reg  [1:0] ram_reset_sync;
 always @(posedge clk_ram) ram_reset_sync <= {ram_reset_sync[0], ~pll_locked};
@@ -340,6 +341,7 @@ fb_sram fb_sram
 	.FB0_A(FB0_A), .FB0_DO(FB0_DO), .FB0_WE(FB0_WE), .FB0_RD(FB0_RD), .FB0_DI(FB0_DI),
 	.FB1_A(FB1_A), .FB1_DO(FB1_DO), .FB1_WE(FB1_WE), .FB1_RD(FB1_RD), .FB1_DI(FB1_DI),
 	.FB_FS(FB_FS),
+	.cfg_rd(fb_cfg_rd), .cfg_we(fb_cfg_we),
 	.sram_a(SRAM_A), .sram_dq(SRAM_DQ), .sram_oe_n(SRAM_OE_N), .sram_we_n(SRAM_WE_N),
 	.sram_ub_n(SRAM_UB_N), .sram_lb_n(SRAM_LB_N)
 );
@@ -357,15 +359,18 @@ memtest memtest
 	.reset(reset),
 	.FB0_A(FB0_A), .FB0_DO(FB0_DO), .FB0_WE(FB0_WE), .FB0_RD(FB0_RD), .FB0_DI(FB0_DI),
 	.FB1_A(FB1_A), .FB1_DO(FB1_DO), .FB1_WE(FB1_WE), .FB1_RD(FB1_RD), .FB1_DI(FB1_DI),
-	.FB_FS(FB_FS),
+	.FB_FS(FB_FS), .cfg_rd(fb_cfg_rd), .cfg_we(fb_cfg_we),
 	.sdr_addr(s32x_sdr_addr), .sdr_rd(s32x_sdr_rd), .sdr_wr(s32x_sdr_wr), .sdr_din(s32x_sdr_din),
 	.sdr_dout(sdr_do[0]), .sdr_busy(sdr_busy[0]),
-	.sram_passes(memtest_status[15:0]), .sram_fail(memtest_status[16]),
-	.sdram_passes(memtest_status[32:17]), .sdram_fail(memtest_status[33])
+	.sram_passes(), .sram_fail(),
+	.sweep_cur(memtest_status[2:0]), .sweep_done(memtest_status[10:3]), .sweep_fail(memtest_status[18:11]),
+	.sdram_passes(memtest_status[34:19]), .sdram_fail(memtest_status[35])
 );
 `else
 assign {FB0_A, FB0_DO, FB0_WE, FB0_RD, FB1_A, FB1_DO, FB1_WE, FB1_RD} = '0;
 assign FB_FS = 1'b0;
+assign fb_cfg_rd = 4'd3;    // 28 ns read capture
+assign fb_cfg_we = 4'd2;    // 19 ns WE pulse
 assign {s32x_sdr_addr, s32x_sdr_rd, s32x_sdr_wr, s32x_sdr_din} = '0;
 assign memtest_status = '0;
 `endif

@@ -579,7 +579,7 @@ endfunction
     wire            sys_ce_pix, sys_hblank, sys_vblank, sys_hs_n, sys_vs_n;
     wire    [1:0]   sys_resolution;
     wire    [15:0]  sys_audio_l, sys_audio_r;
-    wire    [33:0]  memtest_status;
+    wire    [35:0]  memtest_status;
 
 s32x_system system (
     .clk_sys        ( clk_sys ),
@@ -633,38 +633,54 @@ s32x_system system (
     .memtest_status ( memtest_status )
 );
 
-// Memory self-test overlay (MEMTEST builds): two bars near the top of the picture.
-// Rows 8-23: framebuffer SRAM. Rows 32-47: 32X SDRAM region.
-// Red = a failure was seen. Otherwise green, length = completed passes (mod 256, 1 px each),
-// yellow before the first pass completes.
+// Memory self-test overlay (MEMTEST builds), over the Genesis picture:
+//   Rows y = 8 + 10k (k = 0..7, 8 px tall): SRAM timing setting k, fastest (k=0, 28 ns read /
+//   19 ns write) at the top to slowest (k=7, 140 / 130 ns) at the bottom.
+//   Red = failed at least once, green = passed, yellow = not run yet. A white block at the left
+//   edge marks the setting being tested now.
+//   Rows 96-111: 32X SDRAM region. Red = failure, green bar length = passes (mod 256), yellow =
+//   no pass completed yet.
     reg     [8:0]   ov_x;
     reg     [8:0]   ov_y;
     reg             ov_hbl_prev;
     reg     [23:0]  ov_rgb;
     reg             ov_on;
+    reg     [3:0]   ov_k;       // sweep row index (line 8 + 10k), counted per line: no dividers
+    reg     [3:0]   ov_ph;      // line within the 10-line row pitch
 always @(posedge clk_sys) begin
     if (sys_ce_pix) begin
         ov_hbl_prev <= sys_hblank;
         if (sys_hblank) ov_x <= 0; else ov_x <= ov_x + 1'd1;
         if (sys_vblank) ov_y <= 0;
-        else if (sys_hblank & ~ov_hbl_prev) ov_y <= ov_y + 1'd1;
+        else if (sys_hblank & ~ov_hbl_prev) begin
+            ov_y <= ov_y + 1'd1;
+            if (ov_y + 1'd1 == 9'd8) begin
+                ov_k  <= 0;
+                ov_ph <= 0;
+            end else if (ov_ph == 4'd9) begin
+                ov_ph <= 0;
+                ov_k  <= ov_k + 1'd1;
+            end else begin
+                ov_ph <= ov_ph + 1'd1;
+            end
+        end
     end
 end
 always @(*) begin
     ov_on  = 0;
     ov_rgb = 24'h000000;
 `ifdef MEMTEST
-    if (ov_y >= 8 && ov_y < 24) begin
+    if (ov_y >= 8 && ov_y < 88 && ov_ph < 4'd8) begin
         ov_on  = 1;
-        ov_rgb = memtest_status[16] ? 24'hFF0000 :
-                 memtest_status[15:0] == 0 ? 24'hFFFF00 :
-                 (ov_x < memtest_status[7:0]) ? 24'h00FF00 : 24'h204020;
+        ov_rgb = (ov_x < 8 && ov_k[2:0] == memtest_status[2:0]) ? 24'hFFFFFF :
+                 memtest_status[11 + ov_k[2:0]] ? 24'hFF0000 :
+                 memtest_status[3 + ov_k[2:0]]  ? 24'h00FF00 : 24'hFFFF00;
     end
-    else if (ov_y >= 32 && ov_y < 48) begin
+    else if (ov_y >= 96 && ov_y < 112) begin
         ov_on  = 1;
-        ov_rgb = memtest_status[33] ? 24'hFF0000 :
-                 memtest_status[32:17] == 0 ? 24'hFFFF00 :
-                 (ov_x < memtest_status[24:17]) ? 24'h00FF00 : 24'h204020;
+        ov_rgb = memtest_status[35] ? 24'hFF0000 :
+                 memtest_status[34:19] == 0 ? 24'hFFFF00 :
+                 (ov_x < memtest_status[26:19]) ? 24'h00FF00 : 24'h204020;
     end
 `endif
 end

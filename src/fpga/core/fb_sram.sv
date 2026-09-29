@@ -39,6 +39,11 @@ module fb_sram
 	output reg [15:0] FB1_DI,
 	input             FB_FS,          // 1: FB0 is the draw buffer, FB1 is displayed
 
+	// Access timing in clk_ram cycles (9.3 ns). Normal builds: cfg_rd = 3, cfg_we = 2, as
+	// analysed above. The MEMTEST sweep varies them to find what the Pocket's SRAM needs.
+	input       [3:0] cfg_rd,         // read: capture this many cycles after the address (>= 1)
+	input       [3:0] cfg_we,         // write: WE low for this many cycles (>= 1)
+
 	// Async SRAM pins
 	output reg [16:0] sram_a,
 	inout      [15:0] sram_dq,
@@ -74,14 +79,12 @@ function automatic rd_pending(input bit c);
 endfunction
 
 localparam ST_IDLE = 3'd0;
-localparam ST_RD1  = 3'd1;
-localparam ST_RD2  = 3'd2;
-localparam ST_RD3  = 3'd6;
-localparam ST_WR1  = 3'd3;
-localparam ST_WR2  = 3'd4;
-localparam ST_WR3  = 3'd5;
+localparam ST_RD   = 3'd1;   // waiting for read data
+localparam ST_WR1  = 3'd3;   // drive data, WE low
+localparam ST_WR2  = 3'd4;   // WE held low
 
 reg  [2:0] state;
+reg  [3:0] cnt;
 reg        op_ch;
 reg [15:0] op_a;
 reg [15:0] dq_out;
@@ -145,33 +148,38 @@ always @(posedge clk_ram) begin
 					sram_ub_n <= 0;
 					sram_lb_n <= 0;
 					sram_oe_n <= 0;
-					state     <= ST_RD1;
+					cnt       <= cfg_rd - 1'd1;
+					state     <= ST_RD;
 				end
 			end
 
-			ST_RD1: state <= ST_RD2;
-			ST_RD2: state <= ST_RD3;
-			ST_RD3: begin
-				// Capture three cycles (28 ns) after the address was launched.
-				if (op_ch) FB1_DI <= sram_dq; else FB0_DI <= sram_dq;
-				rd_a[op_ch]     <= op_a;
-				rd_valid[op_ch] <= 1;
-				state <= ST_IDLE;
+			ST_RD: begin
+				// Capture cfg_rd cycles after the address was launched (3 = 28 ns).
+				if (cnt != 0) cnt <= cnt - 1'd1;
+				else begin
+					if (op_ch) FB1_DI <= sram_dq; else FB0_DI <= sram_dq;
+					rd_a[op_ch]     <= op_a;
+					rd_valid[op_ch] <= 1;
+					state <= ST_IDLE;
+				end
 			end
 
 			// Write: setup cycle with OE high and DQ still released (bus turnaround),
-			// then WE low for two cycles with data driven, then a hold cycle.
+			// then WE low for cfg_we cycles with data driven, then a hold cycle (in ST_IDLE).
 			ST_WR1: begin
 				dq_oe     <= 1;
 				sram_we_n <= 0;
+				cnt       <= cfg_we - 1'd1;
 				state     <= ST_WR2;
 			end
-			ST_WR2: state <= ST_WR3;
-			ST_WR3: begin
-				sram_we_n <= 1;
-				wr_done[op_ch]  <= 1;
-				rd_valid[op_ch] <= 0;
-				state <= ST_IDLE;
+			ST_WR2: begin
+				if (cnt != 0) cnt <= cnt - 1'd1;
+				else begin
+					sram_we_n <= 1;
+					wr_done[op_ch]  <= 1;
+					rd_valid[op_ch] <= 0;
+					state <= ST_IDLE;
+				end
 			end
 		endcase
 	end
