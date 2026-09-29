@@ -50,14 +50,14 @@ reg   [1:0] we = 0;
 wire [15:0] q;
 wire        wait_o, overflow;
 
-wire [24:1] p_addr; wire p_rd; wire [1:0] p_wr; wire [15:0] p_din;
+wire [24:1] p_addr; wire p_rd; wire [1:0] p_wr; wire [15:0] p_din; wire p_line; wire [127:0] dout0_line;
 wire [15:0] dout0, dout1; wire busy0, busy1;
 reg  [24:1] rom_addr = 0; reg rom_rd = 0;
 
 s32x_sdram_front dut (
 	.clk(clk_sys), .reset(reset),
 	.a(a), .d(d), .cs(cs), .rd(rd), .we(we), .q(q), .wait_o(wait_o),
-	.p_addr(p_addr), .p_rd(p_rd), .p_wr(p_wr), .p_din(p_din), .p_dout(dout0), .p_busy(busy0),
+	.p_addr(p_addr), .p_rd(p_rd), .p_wr(p_wr), .p_din(p_din), .p_line(p_line), .p_dout_line(dout0_line), .p_busy(busy0),
 	.overflow(overflow)
 );
 
@@ -71,7 +71,7 @@ sdram sdram (
 	.SDRAM_BA(SDRAM_BA), .SDRAM_nCS(), .SDRAM_nWE(SDRAM_nWE), .SDRAM_nRAS(SDRAM_nRAS),
 	.SDRAM_nCAS(SDRAM_nCAS), .SDRAM_CLK(SDRAM_CLK), .SDRAM_CKE(SDRAM_CKE),
 	.init(init), .clk(clk_ram), .mid(ram_mid),
-	.addr0(p_addr), .rd0(p_rd), .wr0(p_wr), .din0(p_din), .dout0(dout0), .busy0(busy0),
+	.addr0(p_addr), .rd0(p_rd), .wr0(p_wr), .din0(p_din), .dout0(dout0), .busy0(busy0), .line0(p_line), .dout0_line(dout0_line),
 	.addr1(rom_addr), .rd1(rom_rd), .wr1(2'b00), .din1(16'd0), .dout1(dout1), .busy1(busy1),
 	.addr2(24'd0), .rd2(1'b0), .wr2(2'b00), .din2(16'd0), .dout2(), .busy2(),
 	.addr3(24'd0), .rd3(1'b0), .wr3(2'b00), .din3(16'd0), .dout3(), .busy3()
@@ -93,6 +93,16 @@ localparam int WIN = 2048;                 // words
 reg [15:0] shadow [WIN];
 reg        known  [WIN];
 int errors = 0, n_rd = 0, n_wr = 0, n_miss = 0;
+// Read-miss latency: WAIT on a read, in MCLK
+realtime t_wait = -1, miss_sum = 0, miss_max = 0;
+always @(posedge clk_sys) begin
+	if (wait_o && rd && t_wait < 0) t_wait = $realtime;
+	if (!wait_o && t_wait >= 0) begin
+		automatic real l = ($realtime - t_wait) / T_SYS;
+		n_miss++; miss_sum += l; if (l > miss_max) miss_max = l;
+		t_wait = -1;
+	end
+end
 initial for (int i = 0; i < WIN; i++) known[i] = 0;
 
 task automatic wait_ce_r(); do @(posedge clk_sys); while (!CE_R); endtask
@@ -108,7 +118,6 @@ task automatic sh_read(input int w0, input int n);
 		if (b == 0) begin
 			// TRCAS: move on at a CE_R that sees WAIT released
 			do begin wait_ce_r(); #1; end while (wait_o);
-			if (b == 0) n_miss += 0;
 		end
 		else wait_ce_r();
 		wait_ce_f(); #1;                           // TRD: latch the data
@@ -160,8 +169,9 @@ initial begin
 		else             repeat ($urandom_range(1, 40)) @(posedge clk_sys);
 	end
 	repeat (200) @(posedge clk_sys);
-	$display("%0d read beats, %0d write beats, overflow %b", n_rd, n_wr, overflow);
-	if (errors == 0 && !overflow) $display("PASS");
+	$display("%0d read beats, %0d write beats, overflow %b, SDRAM model errors %0d", n_rd, n_wr, overflow, chip.errors);
+	$display("read misses %0d: average %0.1f MCLK, worst %0.1f MCLK", n_miss, miss_sum / n_miss, miss_max);
+	if (errors == 0 && !overflow && chip.errors == 0) $display("PASS");
 	else $display("FAIL: %0d errors", errors);
 	$finish;
 end

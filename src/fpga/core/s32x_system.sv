@@ -318,6 +318,8 @@ wire [24:1] s32x_sdr_addr;
 wire        s32x_sdr_rd;
 wire  [1:0] s32x_sdr_wr;
 wire [15:0] s32x_sdr_din;
+wire        s32x_sdr_line;          // port-0 read is an 8-word line read (sdram.sv patch 0008)
+wire [127:0] sdr_do0_line;
 
 // Cart bus: from the Genesis directly (GENESIS_ONLY) or from the 32X's cart side.
 wire [23:1] C_VA;
@@ -331,6 +333,7 @@ assign {C_VA, C_VDI, C_LWR_N, C_UWR_N, C_CE0_N, C_CAS0_N, C_CAS2_N, C_ASEL_N} =
        {GEN_VA, GEN_VDO, GEN_LWR_N, GEN_UWR_N, GEN_CE0_N, GEN_CAS0_N, GEN_CAS2_N, GEN_ASEL_N};
 assign {S32X_SL, S32X_SR} = '0;
 assign {S32X_R, S32X_G, S32X_B, S32X_YSO_N, S32X_HBLANK, S32X_DOT_CE} = '0;
+assign s32x_sdr_line = 1'b0;                 // memtest uses single-word accesses on port 0
 `else
 ///////////////////////////////////////////////////
 // 32X
@@ -443,7 +446,7 @@ s32x_sdram_front s32x_sdram_front
 	.a(S32X_SDR_A), .d(S32X_SDR_DO), .cs(S32X_SDR_CS), .rd(S32X_SDR_RD), .we(S32X_SDR_WE),
 	.q(s32x_front_q), .wait_o(s32x_front_wait),
 	.p_addr(s32x_sdr_addr), .p_rd(s32x_sdr_rd), .p_wr(s32x_sdr_wr), .p_din(s32x_sdr_din),
-	.p_dout(sdr_do[0]), .p_busy(sdr_busy[0]),
+	.p_line(s32x_sdr_line), .p_dout_line(sdr_do0_line), .p_busy(sdr_busy[0]),
 	.overflow(s32x_front_ovf)
 );
 `ifdef SIM_DDRAM_REF
@@ -646,6 +649,8 @@ sdram sdram
 	.rd0(s32x_sdr_rd),
 	.wr0(s32x_sdr_wr),
 	.din0(s32x_sdr_din),
+	.line0(s32x_sdr_line),
+	.dout0_line(sdr_do0_line),
 	.dout0(sdr_do[0]),
 	.busy0(sdr_busy[0]),
 

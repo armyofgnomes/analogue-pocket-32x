@@ -51,8 +51,11 @@ match a shadow memory on three seeds. The first version had no backpressure and 
 back-to-back write beats outran the queue; that is why writes now wait on a full queue.
 Full-system check (Kolibri, `FAST_BIOS`): both SH-2s run the game at 127 ms (master 0x06000AEE,
 slave 0x06000516, then code in the cart), and all 335 full-width code reads the slave made from the
-32X SDRAM match the ROM. Pocket build 6486cf4. Performance note: a line miss costs 8
-single-word SDRAM reads (about 1.3 us); an sdram.sv burst mode would cut that a lot.
+32X SDRAM match the ROM. Pocket build 6486cf4. Performance: the first version fetched a line as 8
+single-word SDRAM reads (about 72 MCLK per miss). Patch 0008 adds an sdram.sv line read (one row
+activation, 8 back-to-back column reads) and the front end maps a line to 8 columns of one row:
+misses now average about 14 MCLK in `sim/sdram_front` (worst about 82 MCLK, behind a full write
+queue). A real 32X line fill is roughly 12 SH-2 cycles (about 28 MCLK).
 
 The first build with this fix missed setup by 0.38 ns on SDRAM port 1 (68K bus arbiter through the
 cart mapper into `sdram.sv`'s request registers, half a clk_sys cycle). Patch 0007 now copies every

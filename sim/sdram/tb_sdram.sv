@@ -42,7 +42,7 @@ sdram sdram (
 	.SDRAM_BA(SDRAM_BA), .SDRAM_nCS(), .SDRAM_nWE(SDRAM_nWE), .SDRAM_nRAS(SDRAM_nRAS),
 	.SDRAM_nCAS(SDRAM_nCAS), .SDRAM_CLK(SDRAM_CLK), .SDRAM_CKE(SDRAM_CKE),
 	.init(init), .clk(clk_ram), .mid(ram_mid),
-	.addr0(sdr_addr), .rd0(sdr_rd), .wr0(sdr_wr), .din0(sdr_din), .dout0(dout0), .busy0(busy0),
+	.addr0(sdr_addr), .rd0(sdr_rd), .wr0(sdr_wr), .din0(sdr_din), .dout0(dout0), .busy0(busy0), .line0(1'b0), .dout0_line(),
 	.addr1(rom_addr), .rd1(rom_rd), .wr1(2'b00), .din1(16'd0), .dout1(dout1), .busy1(busy1),
 	.addr2(24'd0), .rd2(1'b0), .wr2(2'b00), .din2(16'd0), .dout2(), .busy2(),
 	.addr3(24'd0), .rd3(1'b0), .wr3(2'b00), .din3(16'd0), .dout3(), .busy3()

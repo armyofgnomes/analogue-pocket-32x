@@ -7,12 +7,17 @@
 // SH-2 cycle. Writes honor WAIT once per beat (TRAS). sdram.sv answers one 16-bit word per
 // request, much slower than a burst, so:
 //   - Reads go through a 16-byte line buffer. A miss holds WAIT while the whole line (8 words) is
-//     fetched; then every beat of the burst is served from the buffer, combinationally.
+//     fetched with one sdram.sv line read (patch 0008: 8 back-to-back column reads of one row);
+//     then every beat of the burst is served from the buffer, combinationally.
 //   - Writes go into a queue, waiting only when it is full. Each beat (WE rising, or address/byte
 //     enables changing while WE is held) is one entry. A write that hits the line buffer also
 //     updates it. The queue drains to SDRAM ahead of line fills, so a fill sees every earlier write.
 // Without this, burst beats after the first returned stale data (full-system sim: the slave SH-2
 // read its code as d116d116, e000e000, ... and crashed right after the BIOS handed over).
+//
+// Address mapping inside the port's SDRAM bank (bank 2; no other port uses it): sdram.sv takes the
+// row from word address bits [13:1] and the column from [22:14], so a 32X word address w is placed
+// as row = w[17:10], column = w[9:1]. A 16-byte line is then 8 consecutive columns of one row.
 //
 // All logic runs on clk_sys, the SH-2 bus clock. The SDRAM port is edge-triggered with a busy
 // that is high from one clk_sys cycle after the request until the access is done.
@@ -37,20 +42,22 @@ module s32x_sdram_front
 	output reg        p_rd,
 	output reg  [1:0] p_wr,
 	output reg [15:0] p_din,
-	input      [15:0] p_dout,
+	output reg        p_line,       // this read is a line read (8 words into p_dout_line)
+	input     [127:0] p_dout_line,  // word 0 in [127:112]
 	input             p_busy,
 
 	output reg        overflow    // sticky: a write was lost (the SH-2 didn't wait on a full queue)
 );
 
-localparam [6:0] BASE = 7'b1000000;      // 32X SDRAM at word 0x800000 (byte 0x1000000) in sdram.sv
+function automatic [24:1] sdr_addr(input [17:1] w);
+	sdr_addr = {2'b10, w[9:1], 5'b00000, w[17:10]};   // bank 2, column w[9:1], row w[17:10]
+endfunction
 
 // Line buffer
 reg  [17:4] lb_tag = 0;
 reg         lb_valid = 0;
 reg  [15:0] lb_data [8];
 reg         filling = 0;
-reg   [2:0] fill_idx = 0;
 reg   [7:0] fill_wmask = 0;              // words written while this line was being filled
 
 wire        r_req = cs & rd;
@@ -80,7 +87,6 @@ assign      wait_o = (r_req & ~hit) | (w_new & wq_full);
 localparam PS_IDLE = 3'd0, PS_W1 = 3'd1, PS_BUSY = 3'd2, PS_GAP = 3'd3;
 reg   [2:0] ps = PS_IDLE;
 reg         op_wr = 0;                   // current port access is a queued write
-reg   [2:0] op_idx = 0;                  // current fill word
 
 wire        wq_pop = (ps == PS_BUSY) && !p_busy && op_wr;
 
@@ -96,6 +102,7 @@ always @(posedge clk) begin
 		ps         <= PS_IDLE;
 		p_rd       <= 0;
 		p_wr       <= 0;
+		p_line     <= 0;
 		overflow   <= 0;
 	end
 	else begin
@@ -123,7 +130,6 @@ always @(posedge clk) begin
 			lb_tag     <= a[17:4];
 			lb_valid   <= 0;
 			filling    <= 1;
-			fill_idx   <= 0;
 			fill_wmask <= 0;
 		end
 
@@ -131,17 +137,18 @@ always @(posedge clk) begin
 		case (ps)
 			PS_IDLE:
 				if (wq_count != 0) begin
-					p_addr <= {BASE, wq_a[wq_head]};
+					p_addr <= sdr_addr(wq_a[wq_head]);
 					p_din  <= wq_d[wq_head];
 					p_wr   <= wq_we[wq_head];
+					p_line <= 0;
 					op_wr  <= 1;
 					ps     <= PS_W1;
 				end
 				else if (filling) begin
-					p_addr <= {BASE, lb_tag, fill_idx};
+					p_addr <= sdr_addr({lb_tag, 3'd0});
 					p_rd   <= 1;
+					p_line <= 1;
 					op_wr  <= 0;
-					op_idx <= fill_idx;
 					ps     <= PS_W1;
 				end
 			PS_W1: ps <= PS_BUSY;                    // busy is up from here on
@@ -153,12 +160,10 @@ always @(posedge clk) begin
 						wq_head <= wq_head + 1'd1;
 					end
 					else begin
-						if (!fill_wmask[op_idx]) lb_data[op_idx] <= p_dout;
-						fill_idx <= op_idx + 1'd1;
-						if (op_idx == 3'd7) begin
-							filling  <= 0;
-							lb_valid <= 1;
-						end
+						for (int i = 0; i < 8; i++)
+							if (!fill_wmask[i]) lb_data[i] <= p_dout_line[127 - 16*i -: 16];
+						filling  <= 0;
+						lb_valid <= 1;
 					end
 					ps <= PS_GAP;
 				end
