@@ -192,7 +192,9 @@ def rewrite(text):
             old = body[st:en]
             body_out = body_out.replace(old, new, 1) if old in body_out else body_out
         new_body = [body_out]
-        result.append(text[pos:body_start])
+        # Untyped outputs get 'logic' only in the ANSI header: old-style port declarations in the
+        # body are usually followed by a 'wire' of the same name (e.g. SH_mem.v), which must stay a net.
+        result.append(text[pos:mstart] + type_outputs(text[mstart:body_start]))
         if hoisted or ports or params:
             result.append('\n// ---- hoisted declarations (sim only) ----\n' + '\n'.join(params + ports + hoisted) + '\n')
         result.append(''.join(new_body))
@@ -218,4 +220,4 @@ if __name__ == '__main__':
     # vlog -E wraps its output in `begin_keywords/`end_keywords; drop them (they break when the
     # rewritten files are compiled together).
     text = re.sub(r'^\s*`(begin|end)_keywords.*$', '', text, flags=re.M)
-    open(dst, 'w').write(rewrite(type_outputs(text)))
+    open(dst, 'w').write(rewrite(text))

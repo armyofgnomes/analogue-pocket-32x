@@ -2,7 +2,7 @@
 """Emit the source list for sim/system from ap_core.qsf (expanding .qip files), so the full-system
 simulation compiles exactly what Quartus compiles. sdram.sv is replaced by the sim-only hoisted
 copy (see sim/sdram/prep.sh). Output lines: '<vlog|vcom> <path>' relative to the repo root."""
-import re, sys
+import os, re, sys
 from pathlib import Path
 
 repo = Path(__file__).resolve().parents[2]
@@ -51,9 +51,20 @@ FIXUPS = {
     # upper bits undriven. Questa rejects the width mismatch at the VHDL boundary.
     # SND_MIX is VHDL: an unsized '1' (32 bits) on its std_logic port is a width mismatch.
     'gen.sv': [('\t.CH0_EN(1),', "\t.CH0_EN(1'b1),")],
+    # CACHE.sv uses LRU_B_Q/LRU_WE/LRU_WRADDR before declaring them: declare them earlier (the only
+    # change), so CACHE.sv can skip the general rewriter.
+    'CACHE.sv': [('\tCACHE_TAG tag0(', '\tbit  [5:0] LRU_A_Q,LRU_B_Q;\n\twire [5:0] LRU_WRADDR;\n\twire       LRU_WE;\n\tCACHE_TAG tag0('),
+                 ('\twire  [5:0] LRU_WRADDR = CACHE_WR_ADDR[9:4];', '\tassign LRU_WRADDR = CACHE_WR_ADDR[9:4];'),
+                 ('\twire        LRU_WE = ', '\tassign LRU_WE = '),
+                 ('\tbit  [5:0] LRU_A_Q,LRU_B_Q;\n\tCACHE_LRU lru_a(', '\tCACHE_LRU lru_a(')],
     'vdp_mem.v': [('\t\t.q_b(q_b)\n\t);\n\nendmodule\n\nmodule vdp_obj_visinfo',
                    '\t\t.q_b(q_b[10:0])\n\t);\n\tassign q_b[21:11] = 11\'d0;\n\nendmodule\n\nmodule vdp_obj_visinfo')],
 }
+
+# Upstream files that Questa accepts unmodified: keep them byte-for-byte (minus the SIM define),
+# so the rewriter can't change their behavior.
+NO_HOIST = {'SH_pkg.sv', 'SH_regfile.sv', 'SH_core.sv', 'SH7604_pkg.sv', 'BSC.sv', 'DMAC.sv', 'CACHE.sv',
+            'UBC.sv', 'INTC.sv', 'FRT.sv', 'SCI.sv', 'DIVU.sv', 'MULT.sv', 'MSBY.sv', 'SH7604.sv'}
 
 def apply_fixups(name, text):
     for old, new in FIXUPS.get(name, []):
@@ -61,6 +72,11 @@ def apply_fixups(name, text):
             sys.exit(f"sim fixup for {name} no longer matches upstream")
         text = text.replace(old, new)
     return text
+
+# Sim-only behavioral memory models (hardware semantics), compiled after the originals so these
+# definitions win. See sim/common/stubs/sh_mem_behav.sv.
+if os.environ.get('SH_MEM_BEHAV', '1') == '1':
+    files.append(('vlog', (repo / 'sim/common/stubs/sh_mem_behav.sv').resolve()))
 
 seen = set()
 for kind, p in files:
@@ -93,7 +109,11 @@ for kind, p in files:
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=str(out.parent))
         if not pre.exists():
             sys.exit(f"preprocessing failed: {p}")
-        subprocess.run([sys.executable, str(repo / 'sim/common/hoist_decls.py'), str(pre), str(out)], check=True)
+        if p.name in NO_HOIST:
+            # Compiles in Questa as-is: only the SIM define is removed, nothing is rewritten.
+            out.write_text(nosim.read_text())
+        else:
+            subprocess.run([sys.executable, str(repo / 'sim/common/hoist_decls.py'), str(pre), str(out)], check=True)
         p = out
     if p in seen:
         continue

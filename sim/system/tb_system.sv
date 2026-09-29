@@ -184,6 +184,122 @@ always @(posedge clk_sys) if (trace && !dut.GEN_AS_N && $realtime - t_as > 20000
 	         n_clkenp, dut.gen.ba.ENABLE, dut.gen.ba.RST_N);
 end
 
+// SH-2 SDRAM request stuck (> 20 us with CS and RD/WE active): show both sides of port 0
+realtime t_sdr_req = -1;
+bit sdr_stuck_reported = 0;
+always @(posedge clk_sys) if (trace) begin
+	automatic bit req = dut.S32X_SDR_CS && (dut.S32X_SDR_RD || |dut.S32X_SDR_WE);
+	if (!req) t_sdr_req = -1;
+	else if (t_sdr_req < 0) t_sdr_req = $realtime;
+	else if (!sdr_stuck_reported && $realtime - t_sdr_req > 20000.0) begin
+		sdr_stuck_reported = 1;
+		$display("%t STUCK SH-2 SDRAM request: A=%05h RD=%b WE=%b DO=%04h busy0=%b | sdram ch_req=%b ch_pend=%b state=%0d active=%b ch_n=%0d",
+		         $realtime, {dut.S32X_SDR_A, 1'b0}, dut.S32X_SDR_RD, dut.S32X_SDR_WE, dut.S32X_SDR_DO, dut.sdr_busy[0],
+		         dut.sdram.ch_req, dut.sdram.ch_pend, dut.sdram.state, dut.sdram.active, dut.sdram.ch_n);
+	end
+end
+// Every SH-2 SDRAM request edge, for the first 100 (to see the access pattern)
+int n_sdr_log = 0;
+reg old_sdr_rd = 0;
+reg [1:0] old_sdr_we = 0;
+always @(posedge clk_ram) if (trace) begin
+	old_sdr_rd <= dut.s32x_sdr_rd;
+	old_sdr_we <= dut.s32x_sdr_wr;
+	if (n_sdr_log < 100 && ((dut.s32x_sdr_rd && !old_sdr_rd) || (|dut.s32x_sdr_wr && !(|old_sdr_we)))) begin
+		n_sdr_log++;
+		$display("%t SDR req %0d: %s A=%06h busy0=%b", $realtime, n_sdr_log, dut.s32x_sdr_rd ? "RD" : "WR",
+		         {dut.s32x_sdr_addr, 1'b0}, dut.sdr_busy[0]);
+	end
+end
+
+// SH-2 snapshot every 1 ms once the SH-2s are out of reset (+shsnap, needs ACC=1 for core.PC)
+bit shsnap;
+initial shsnap = $test$plusargs("shsnap");
+always begin
+	#(1ms);
+	if (shsnap && dut.S32X.s32x_if.ADCR.RES)
+		$display("%t SH2 M: PC=%08h SLP=%b A=%07h CS0/1/2/3=%b%b%b%b RD=%b BS=%b IRL=%h | S: PC=%08h SLP=%b A=%07h CS=%b%b%b%b IRL=%h | WAIT_N=%b BREQ/BACK=%b%b RV=%b | 68K %06h",
+		         $realtime,
+		         dut.S32X.MSH.core.PC, dut.S32X.MSH.core.SLP, {dut.S32X.SHA, 1'b0} >> 1,
+		         dut.S32X.SHCS0M_N, dut.S32X.SHCS1_N, dut.S32X.SHCS2_N, dut.S32X.SHCS3_N, dut.S32X.SHRD_N, dut.S32X.SHBS_N,
+		         dut.S32X.SHMIRL_N,
+		         dut.S32X.SSH.core.PC, dut.S32X.SSH.core.SLP, {dut.S32X.SHSA, 1'b0} >> 1,
+		         dut.S32X.SHCS0S_N, dut.S32X.SHSCS1_N, dut.S32X.SHSCS2_N, dut.S32X.SHSCS3_N, dut.S32X.SHSIRL_N,
+		         dut.S32X.SHWAIT_N, dut.S32X.SHBREQ_N, dut.S32X.SHBACK_N, dut.S32X.s32x_if.DCR.RV,
+		         {dut.gen.M68K_A, 1'b0});
+end
+
+// Master SH-2 PC history (+shsnap): the last 64 distinct PCs, dumped when it first reaches the
+// BIOS's unhandled-exception trap at 0x13C. Also the slave's first 48 PCs after reset.
+reg [31:0] pc_ring [0:63];
+reg        pc_ili  [0:63];
+reg        pc_int  [0:63];
+realtime   pc_t    [0:63];
+int        pc_wr = 0, n_spc = 0;
+reg [31:0] last_mpc = 0, last_spc = 0;
+bit        trap_dumped = 0;
+always @(posedge clk_sys) if (shsnap && dut.S32X.s32x_if.ADCR.RES) begin
+	if (dut.S32X.MSH.core.PC !== last_mpc) begin
+		last_mpc = dut.S32X.MSH.core.PC;
+		pc_ring[pc_wr % 64] = last_mpc; pc_ili[pc_wr % 64] = 1'b0;
+		pc_int[pc_wr % 64] = dut.S32X.MSH.core.INT_REQ; pc_t[pc_wr % 64] = $realtime;
+		pc_wr++;
+		if (last_mpc == 32'h13C && !trap_dumped) begin
+			trap_dumped = 1;
+			$display("%t MASTER SH-2 reached trap 0x13C; previous PCs:", $realtime);
+			for (int i = (pc_wr > 64 ? pc_wr - 64 : 0); i < pc_wr; i++)
+				$display("    %t PC=%08h ILI=%b INT_REQ=%b", pc_t[i % 64], pc_ring[i % 64], pc_ili[i % 64], pc_int[i % 64]);
+		end
+	end
+	if (dut.S32X.SSH.core.PC !== last_spc && n_spc < 48) begin
+		last_spc = dut.S32X.SSH.core.PC;
+		n_spc++;
+		$display("%t slave SH-2 PC=%08h ILI=%b INT_REQ=%b", $realtime, last_spc, 1'b0, dut.S32X.SSH.core.INT_REQ);
+	end
+end
+
+// Bus trace window (+win_start=<ns> +win_end=<ns>): every master/slave SH-2 bus cycle start
+// (BS_N falling), with address, chip selects, read/write, WAIT and the SDRAM port state.
+real win_start = -1, win_end = -1;
+initial begin
+	void'($value$plusargs("win_start=%f", win_start));
+	void'($value$plusargs("win_end=%f", win_end));
+end
+reg old_mbs = 1, old_sbs = 1;
+always @(posedge clk_sys) if (win_start >= 0 && $realtime >= win_start && $realtime <= win_end) begin
+	old_mbs <= dut.S32X.SHBS_N;
+	old_sbs <= dut.S32X.SHSBS_N;
+	if (old_mbs && !dut.S32X.SHBS_N)
+		$display("%t M bus: A=%08h CS0123=%b%b%b%b RD=%b RDWR_N=%b DQM=%b DO=%08h WAIT_N=%b PC=%08h",
+		         $realtime, {dut.S32X.SHA, 1'b0} >> 1, dut.S32X.SHCS0M_N, dut.S32X.SHCS1_N, dut.S32X.SHCS2_N,
+		         dut.S32X.SHCS3_N, dut.S32X.SHRD_N, dut.S32X.SHRD_WR_N, dut.S32X.SHDQM_N, dut.S32X.SHDO,
+		         dut.S32X.SHWAIT_N, dut.S32X.MSH.core.PC);
+	if (old_sbs && !dut.S32X.SHSBS_N)
+		$display("%t S bus: A=%08h CS0123=%b%b%b%b RD=%b PC=%08h", $realtime, {dut.S32X.SHSA, 1'b0} >> 1,
+		         dut.S32X.SHCS0S_N, dut.S32X.SHSCS1_N, dut.S32X.SHSCS2_N, dut.S32X.SHSCS3_N, dut.S32X.SHSRD_N,
+		         dut.S32X.SSH.core.PC);
+end
+always @(posedge clk_ram) if (win_start >= 0 && $realtime >= win_start && $realtime <= win_end &&
+                              (dut.s32x_sdr_rd || |dut.s32x_sdr_wr || dut.sdr_busy[0]))
+	$display("%t   sdr port0: rd=%b wr=%b A=%06h din=%04h busy=%b", $realtime, dut.s32x_sdr_rd, dut.s32x_sdr_wr,
+	         {dut.s32x_sdr_addr, 1'b0}, dut.s32x_sdr_din, dut.sdr_busy[0]);
+
+// Master SH-2 register-file writes every clock in [rf_start, rf_end] ns (+rf_start/+rf_end, ACC=1)
+real rf_start = -1, rf_end = -1;
+initial begin
+	void'($value$plusargs("rf_start=%f", rf_start));
+	void'($value$plusargs("rf_end=%f", rf_end));
+end
+always @(posedge clk_sys) if (rf_start >= 0 && $realtime >= rf_start && $realtime <= rf_end)
+	$display("%t RF PC=%08h CE=%b EN=%b PCST=%b BST=%b WAIT_N=%b | A: n=%0d d=%08h we=%b | B: n=%0d d=%08h we=%b | latch n=%0d we=%b | RAM wr n=%0d d=%08h we=%b",
+	         $realtime, dut.S32X.MSH.core.PC, dut.S32X.MSH.core.CE, dut.S32X.MSH.core.EN,
+	         dut.S32X.MSH.core.PC_STALL, dut.S32X.MSH.core.BUS_STALL, dut.S32X.SHWAIT_N,
+	         dut.S32X.MSH.core.REGS_WAN, dut.S32X.MSH.core.REGS_WAD, dut.S32X.MSH.core.REGS_WAE,
+	         dut.S32X.MSH.core.REGS_WBN, dut.S32X.MSH.core.REGS_WBD, dut.S32X.MSH.core.REGS_WBE,
+	         dut.S32X.MSH.core.regfile.WB_ADDR_LATCH, dut.S32X.MSH.core.regfile.WBE_LATCH,
+	         dut.S32X.MSH.core.regfile.W_ADDR, dut.S32X.MSH.core.regfile.REG_D,
+	         dut.S32X.MSH.core.regfile.REG_WE & dut.S32X.MSH.core.regfile.EN);
+
 // 32X adapter state (68K-side register A15100): ADEN = 32X enabled, RES = SH-2s released from
 // reset, FM = framebuffer access (0: 68K, 1: SH-2)
 reg [2:0] old_adcr = 3'bxxx;

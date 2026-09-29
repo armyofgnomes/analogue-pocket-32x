@@ -24,7 +24,7 @@ if [ "${SKIP_COMPILE:-0}" != 1 ]; then
     vhd=$(echo "$list" | awk '$1=="vcom"{print "'"$repo"'/"$2}')
     "$Q/vcom" -quiet -2008 -autoorder $vhd
     vl=$(echo "$list" | awk '$1=="vlog"{print "'"$repo"'/"$2}')
-    "$Q/vlog" -sv -quiet -suppress 2244,2388 -L altera_mf_ver $vl \
+    "$Q/vlog" -sv -quiet -suppress 2244,2388 ${VLOG_DEFS:-} -L altera_mf_ver $vl \
         "$repo/sim/common/sdram_model.sv" "$repo/sim/system/tb_system.sv"
 fi
 # Init files: the BIOS ROMs use core/bios_mif/*.mif (relative to the Quartus project dir), fx68k
@@ -35,8 +35,19 @@ cp -f "$repo"/src/fpga/core/rtl/S32X_MiSTer/rtl/FX68K/*.mem .
 # ACC=1 keeps full signal visibility for diagnostics (slower)
 # +initreg+0: every register starts at 0, like FPGA power-up (upstream has many registers
 # without a reset, e.g. the Genesis bus arbiter's refresh timers, which would stay X otherwise).
-vopt="+initreg+0"
+# INITREG=0 turns it off (it may also override explicit initializers such as reg x = 3'b111).
+vopt=""
+[ "${INITREG:-1}" = 1 ] && vopt="+initreg+0"
 [ "${ACC:-0}" = 1 ] && vopt="$vopt +acc"
 acc=(-voptargs="$vopt")
+# CHECKPOINT_AT=<ms>: run to that time, save checkpoint.cpt, then continue.
+# RESTORE=1: resume from checkpoint.cpt instead of starting at 0 (same compiled design only;
+# plusargs are fixed at checkpoint time, except those read later such as +win_start/+win_end are not).
+run_cmd="run -all"
+[ -n "${CHECKPOINT_AT:-}" ] && run_cmd="run ${CHECKPOINT_AT}ms; checkpoint checkpoint.cpt; run -all"
+if [ "${RESTORE:-0}" = 1 ]; then
+    "$Q/vsim" -c -quiet -restore checkpoint.cpt -do "set NumericStdNoWarnings 1; set StdArithNoWarnings 1; run -all; quit -f"
+    exit
+fi
 "$Q/vsim" -c -quiet ${acc[@]+"${acc[@]}"} -suppress 7063,7061,10000 -L "$INTEL/verilog/altera_mf" -L altera_mf tb_system "$@" \
-    -do "set NumericStdNoWarnings 1; set StdArithNoWarnings 1; run -all; quit -f"
+    -do "set NumericStdNoWarnings 1; set StdArithNoWarnings 1; $run_cmd; quit -f"

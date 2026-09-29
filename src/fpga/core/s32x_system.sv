@@ -344,6 +344,8 @@ wire [17:1] S32X_SDR_A;
 wire [15:0] S32X_SDR_DO;
 wire        S32X_SDR_CS, S32X_SDR_RD;
 wire  [1:0] S32X_SDR_WE;
+wire        s32x_sdr_wait;
+wire [15:0] s32x_sdr_di, s32x_fb0_di, s32x_fb1_di;
 
 assign GEN_VDI     = S32X_VDO;
 assign GEN_DTACK_N = S32X_DTACK_N & CART_DTACK_N;
@@ -352,7 +354,11 @@ assign {C_VA, C_VDI, C_LWR_N, C_UWR_N, C_CE0_N, C_CAS0_N, C_CAS2_N, C_ASEL_N} =
 
 S32X #(
 	.USE_ROM_WAIT(1),
+`ifdef SIM_MISTER_MEM
+	.USE_ASYNC_FB(0)        // sim-only reference: MiSTer's configuration (see below)
+`else
 	.USE_ASYNC_FB(1)        // framebuffers in external SRAM (fb_sram.sv relies on this mode)
+`endif
 ) S32X
 (
 	.RST_N(~sys_reset),
@@ -392,20 +398,20 @@ S32X #(
 	.ROM_WAIT(CART_SRAM_RD || CART_SRAM_WR ? sdr_busy[2] : sdr_busy[1]),
 
 	.SDR_A(S32X_SDR_A),
-	.SDR_DI(sdr_do[0]),
+	.SDR_DI(s32x_sdr_di),
 	.SDR_DO(S32X_SDR_DO),
 	.SDR_CS(S32X_SDR_CS),
 	.SDR_WE(S32X_SDR_WE),
 	.SDR_RD(S32X_SDR_RD),
-	.SDR_WAIT(sdr_busy[0]),
+	.SDR_WAIT(s32x_sdr_wait),
 
 	.FB0_A(FB0_A),
-	.FB0_DI(FB0_DI),
+	.FB0_DI(s32x_fb0_di),
 	.FB0_DO(FB0_DO),
 	.FB0_WE(FB0_WE),
 	.FB0_RD(FB0_RD),
 	.FB1_A(FB1_A),
-	.FB1_DI(FB1_DI),
+	.FB1_DI(s32x_fb1_di),
 	.FB1_DO(FB1_DO),
 	.FB1_WE(FB1_WE),
 	.FB1_RD(FB1_RD),
@@ -426,10 +432,66 @@ S32X #(
 	.DBG_CA()
 );
 
-// 32X SDRAM (256 KB) on sdram.sv port 0 at 0x1000000, as upstream's use_sdr path.
+// 32X SDRAM (256 KB) on sdram.sv port 0 at 0x1000000.
+//
+// The SH-2 bus WAIT inside the 32X is global (32X.sv: SHWAIT_N = IF_WAIT_N & ~SDR_WAIT), so an
+// SDRAM access still in progress must not assert WAIT during the SH-2's next, unrelated bus cycle
+// (e.g. a boot ROM fetch): full-system simulation showed exactly that corrupting the master SH-2's
+// register reads in its BIOS SDRAM test. On a real 32X, SDRAM never waits outside its own cycles.
+// sdram.sv's port is edge-triggered with a per-request busy, so requests are also serialized: a new
+// access is presented only after the previous one has completed, and stays asserted (one edge)
+// until the SH-2 ends the bus cycle.
+wire        s32x_req_rd = S32X_SDR_CS & S32X_SDR_RD;
+wire  [1:0] s32x_req_wr = S32X_SDR_WE & {2{S32X_SDR_CS}};
+wire        s32x_req    = s32x_req_rd | (|s32x_req_wr);
+reg         s32x_issued = 0;
+reg         s32x_p_rd = 0;
+reg   [1:0] s32x_p_wr = 0;
+always @(posedge clk_sys) begin
+	if (!s32x_req) begin
+		s32x_issued <= 0;
+		s32x_p_rd   <= 0;
+		s32x_p_wr   <= 0;
+	end
+	else if (!s32x_issued && !sdr_busy[0]) begin
+		s32x_issued <= 1;
+		s32x_p_rd   <= s32x_req_rd;
+		s32x_p_wr   <= s32x_req_wr;
+	end
+end
+// WAIT only during an SDRAM cycle, from the request until its completion.
+`ifdef SIM_MISTER_MEM
+// Sim-only reference configuration (+define+SIM_MISTER_MEM): memories as in MiSTer, to compare
+// against. 32X SDRAM as an ideal zero-wait RAM; framebuffers as block RAM with a registered read
+// address (like MiSTer's spram), with USE_ASYNC_FB=0 above.
+reg [15:0] ref_sdram [0:131071];
+reg [15:0] ref_fb0 [0:65535], ref_fb1 [0:65535];
+reg [15:0] ref_fb0_q, ref_fb1_q;
+initial for (int i = 0; i < 131072; i++) ref_sdram[i] = 0;
+always @(posedge clk_sys) begin
+	if (S32X_SDR_CS && S32X_SDR_WE[1]) ref_sdram[S32X_SDR_A][15:8] <= S32X_SDR_DO[15:8];
+	if (S32X_SDR_CS && S32X_SDR_WE[0]) ref_sdram[S32X_SDR_A][7:0]  <= S32X_SDR_DO[7:0];
+	if (FB0_WE[1]) ref_fb0[FB0_A][15:8] <= FB0_DO[15:8];
+	if (FB0_WE[0]) ref_fb0[FB0_A][7:0]  <= FB0_DO[7:0];
+	if (FB1_WE[1]) ref_fb1[FB1_A][15:8] <= FB1_DO[15:8];
+	if (FB1_WE[0]) ref_fb1[FB1_A][7:0]  <= FB1_DO[7:0];
+	ref_fb0_q <= ref_fb0[FB0_A];
+	ref_fb1_q <= ref_fb1[FB1_A];
+end
+assign s32x_sdr_di   = ref_sdram[S32X_SDR_A];
+assign s32x_fb0_di   = ref_fb0_q;
+assign s32x_fb1_di   = ref_fb1_q;
+assign s32x_sdr_wait = 1'b0;
+`else
+assign s32x_sdr_di   = sdr_do[0];
+assign s32x_fb0_di   = FB0_DI;
+assign s32x_fb1_di   = FB1_DI;
+assign s32x_sdr_wait = s32x_req & (~s32x_issued | sdr_busy[0]);
+`endif
+
 assign s32x_sdr_addr = {7'b1000000, S32X_SDR_A};
-assign s32x_sdr_rd   = S32X_SDR_CS & S32X_SDR_RD;
-assign s32x_sdr_wr   = S32X_SDR_WE & {2{S32X_SDR_CS}};
+assign s32x_sdr_rd   = s32x_p_rd;
+assign s32x_sdr_wr   = s32x_p_wr;
 assign s32x_sdr_din  = S32X_SDR_DO;
 `endif
 
