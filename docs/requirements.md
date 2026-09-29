@@ -20,7 +20,7 @@ Update the status column in the same commit that completes a requirement.
 | **M0: Tooling & feasibility** (all but REQ-TOOL-04) | Know whether it fits, and have a repeatable build | REQ-TOOL-01..04 done. REQ-ARCH-03 fit report reviewed. Go/no-go on REQ-ARCH-01 |
 | **M1: Pipeline proven on hardware** ✅ 2026-09-28 | Build from source → Pocket, end to end | Modified template (e.g. solid color of our choosing) built by us, loads on a Pocket |
 | **M2: Genesis on Pocket** ✅ 2026-09-28 | The Genesis half of the system runs, from the S32X codebase with 32X disabled | Several Genesis games boot and play with sound and input |
-| **M3: 32X memory subsystem** | Framebuffers, 32X SDRAM and BIOS live in Pocket memory | Memory test patterns pass on HW. BIOS present (embedded is fine) |
+| **M3: 32X memory subsystem** ✅ 2026-09-28 (memory; BIOS embedding verified in M4) | Framebuffers, 32X SDRAM and BIOS live in Pocket memory | Memory test patterns pass on HW. BIOS present (embedded is fine) |
 | **M4: 32X boots** | Both SH-2s run BIOS code | 32X BIOS/security screen shown. A simple 32X homebrew/test ROM runs |
 | **M5: Games playable** | Commercial 32X library playable | Test-matrix games (REQ-QA-03) boot and play with correct video/audio |
 | **M6: Polish** | Saves, settings, PAL, dock, accuracy fixes | P1 requirements done |
@@ -87,12 +87,12 @@ Update the status column in the same commit that completes a requirement.
 
 | ID | Pri | Requirement | Verify | Status |
 |---|---|---|---|---|
-| REQ-MEM-01 | P0 | SDRAM controller for the Pocket's 64 MB SDRAM, multi-port: cart ROM (68K + SH-2 + Z80 bank), loader writes, and (if chosen) 32X SDRAM + save RAM, with bounded latency | HW | WIP |
-| REQ-MEM-02 | P0 | Framebuffer storage in external memory (SRAM proposed) supporting 32X VDP scanout, SH-2 reads/writes, and VDP auto-fill, with FB swap semantics | HW | WIP |
+| REQ-MEM-01 | P0 | SDRAM controller for the Pocket's 64 MB SDRAM, multi-port: cart ROM (68K + SH-2 + Z80 bank), loader writes, and (if chosen) 32X SDRAM + save RAM, with bounded latency | HW | DONE |
+| REQ-MEM-02 | P0 | Framebuffer storage in external memory (SRAM proposed) supporting 32X VDP scanout, SH-2 reads/writes, and VDP auto-fill, with FB swap semantics | HW | DONE |
 | REQ-MEM-03 | P0 | 32X SDRAM (256 KB) in external memory with wait-state behavior close to real hardware | HW | WIP |
 | REQ-MEM-04 | P0 | BIOS images in BRAM (initialized at build time, or loaded from data slots per REQ-APF-03b). Correct mapping at SH-2 0x00000000 and 68K vector area | SIM | TODO |
 | REQ-MEM-05 | P0 | Genesis internal RAMs (68K 64 KB, Z80 8 KB, VRAM 64 KB, CRAM, VSRAM) in BRAM | FIT | DONE |
-| REQ-MEM-06 | P1 | Memory self-test mode (debug build) that exercises each external RAM and reports pass/fail on screen | HW | WIP |
+| REQ-MEM-06 | P1 | Memory self-test mode (debug build) that exercises each external RAM and reports pass/fail on screen | HW | DONE |
 
 ## 7. Genesis base system (GEN), milestone M2
 

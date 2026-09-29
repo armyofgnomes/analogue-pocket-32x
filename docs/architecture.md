@@ -136,6 +136,15 @@ All reads and writes meet their deadlines on every seed tried. Worst measured la
 tightened by 3 MCLK. The draw buffer comes from the VDP's `FS` bit (patch 0004). A heuristic
 that inferred it from the RD levels hit 5.75/6 in simulation right after a buffer swap.
 
+**Hardware result (2026-09-28, memtest sweeps, see `docs/test-log.md`):** the Pocket's SRAM needs
+**more than 28 ns for reads**. 32.6 ns works and production uses 37.2 ns (4 clk_ram cycles),
+so there's at least 4.6 ns of margin. Writes work with an 18.6 ns WE pulse (production), not
+with 9.3 ns. With registers in the I/O cells and event-driven arbitration (draw requests abort
+display reads), the production timing meets the VDP deadlines on hardware with a 6-cycle hold
+and with a 5-cycle hold (one cycle tighter than the VDP). Simulation at 37 ns reads: worst SH-2
+read 3.75/6 MCLK, display 5.75/8. 5-cycle (46.6 ns) reads would not meet the display deadline
+without further work (e.g. display prefetch).
+
 The upstream core is used with `USE_ASYNC_FB=1`, which keeps display RD permanently asserted and
 fill WE held for the whole step, so the controller never has to catch single-cycle strobes.
 
