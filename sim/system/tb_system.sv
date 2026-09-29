@@ -335,12 +335,14 @@ always @(posedge clk_sys) if (trace) begin
 	if (!dut.S32X.SHCS0S_N) n_ssh_cs0++;
 end
 
-// Trace windows can be re-set at run time from trace_cfg.txt in the run directory (checked every
-// 100 us), so a checkpoint restored with RESTORE=1 can be probed without re-simulating:
+// Trace windows can be re-set at run time from trace_cfg.txt in the run directory (+trace_cfg; checked
+// every 100 us), so a checkpoint restored with RESTORE=1 can be probed without re-simulating:
 //   "<win_start> <win_end> <core_start> <core_end> [<rf_start> <rf_end>]" in ns (-1 = off)
+bit trace_cfg;
+initial trace_cfg = $test$plusargs("trace_cfg");   // opt-in: $fopen warns every time the file is missing
 always begin
 	#(100us);
-	begin
+	if (trace_cfg) begin
 		int fd, n;
 		real a, b, c, d, e, f;
 		fd = $fopen("trace_cfg.txt", "r");

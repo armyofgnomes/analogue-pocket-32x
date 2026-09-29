@@ -11,7 +11,7 @@ INTEL=$Q/../intel
 python3 "$repo/tools/gen_bios_mif.py" >/dev/null
 "$repo/sim/sdram/prep.sh" >/dev/null
 
-work=$repo/build/sim/system
+work=${WORK:-$repo/build/sim/system}   # WORK=<dir>: a separate run directory, e.g. for a second sim in parallel
 mkdir -p "$work"
 cd "$work"
 if [ "${SKIP_COMPILE:-0}" != 1 ]; then
@@ -32,7 +32,24 @@ fi
 # Init files: the BIOS ROMs use core/bios_mif/*.mif (relative to the Quartus project dir), fx68k
 # reads microrom.mem / nanorom.mem from the working directory.
 mkdir -p core
-ln -sfn "$repo/src/fpga/core/bios_mif" core/bios_mif
+rm -rf core/bios_mif
+if [ "${FAST_BIOS:-0}" = 1 ]; then
+    # Sim-only shortcut: the master BIOS's SDRAM fill-and-verify test takes ~130 ms of simulated
+    # time. Branch from its start (0x1C0) to the success path (0x20C, which still clears SDRAM).
+    mkdir -p core/bios_mif
+    cp "$repo"/src/fpga/core/bios_mif/*.mif core/bios_mif/
+    python3 - core/bios_mif/shbios.mif <<'PY'
+import re, sys
+p = sys.argv[1]
+t = open(p).read()
+for addr, val in ((0x0E0, 'A024'), (0x0E1, '0009')):   # word 0xE0 = byte 0x1C0: bra 0x20C; nop
+    t, n = re.subn(r'(?m)^(\s*)%04X(\s*:\s*)[0-9A-Fa-f]+;' % addr, r'\g<1>%04X\g<2>%s;' % (addr, val), t)
+    assert n == 1, hex(addr)
+open(p, 'w').write(t)
+PY
+else
+    ln -sfn "$repo/src/fpga/core/bios_mif" core/bios_mif
+fi
 cp -f "$repo"/src/fpga/core/rtl/S32X_MiSTer/rtl/FX68K/*.mem .
 # ACC=1 keeps full signal visibility for diagnostics (slower)
 # +initreg+0: every register starts at 0, like FPGA power-up (upstream has many registers
