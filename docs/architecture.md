@@ -243,6 +243,13 @@ target. Remaining candidates, roughly in order of risk:
 4. Genesis VDP register usage (1,869 registers, the biggest register block) deserves a look.
 5. Only then anything that touches CPU accuracy.
 
+**Actual full build (M4, 2026-09-28):** the complete core (Genesis + 32X + Pocket side + fb_sram)
+needs **16,647 / 18,480 ALMs (90 %)**, 175 M10K, 17 DSP, with timing met (MCLK Fmax 59.3 MHz,
+setup +0.605 ns, hold +0.121 ns). That's with area-first synthesis, upstream's synthesis options,
+and the SH-2 UBC disabled; no audio trims. The first attempt with the Analogue template's
+synthesis settings needed 19,963 ALMs (108 %) and didn't fit. The template sets
+`MUX_RESTRUCTURE OFF` and lacks upstream's area options, so every block came out 10-30 % larger.
+
 The headroom target is a guideline for routability and timing. openFPGA-Genesis ships at 67 %,
 but plenty of Pocket cores ship above 90 %. Timing at 85 % is +1.3 ns, better than the
 baseline's.

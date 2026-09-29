@@ -55,7 +55,7 @@ Update the status column in the same commit that completes a requirement.
 | REQ-ARCH-01 | P0 | Decide the base: port S32X_MiSTer system logic (recommended) vs. openFPGA-Genesis + graft 32X. Record the decision and rationale | DOC | DONE |
 | REQ-ARCH-02 | P0 | Finalize memory map for cart ROM, 32X SDRAM, framebuffers, save RAM, BIOS (proposal in `architecture.md` §4), including a bandwidth budget per memory | DOC | DONE |
 | REQ-ARCH-03 | P0 | **Fit experiment:** synthesize the S32X system logic (no MiSTer `sys/`) for 5CEBA4F23C8 with framebuffers stubbed out of BRAM. Record ALM / M10K / DSP / PLL usage and Fmax | FIT | DONE |
-| REQ-ARCH-04 | P0 | If REQ-ARCH-03 is over budget: a reduction plan with estimated savings per item, executed until fit with ≥ ~10% ALM headroom for routing | FIT | WIP |
+| REQ-ARCH-04 | P0 | If REQ-ARCH-03 is over budget: a reduction plan with estimated savings per item, executed until fit with ≥ ~10% ALM headroom for routing | FIT | DONE |
 | REQ-ARCH-05 | P0 | Clock plan: PLL outputs for MCLK (NTSC), memory clock, video clock (+90°), 12.288 MHz audio; CDC points listed | FIT | TODO |
 | REQ-ARCH-06 | P1 | PAL MCLK (53.203424 MHz) support: second PLL config or dynamic reconfiguration | HW | TODO |
 
@@ -66,7 +66,7 @@ Update the status column in the same commit that completes a requirement.
 | REQ-APF-01 | P0 | `core.json`: real metadata (author, shortname, description, version, URL), `platform_ids` set to our platform, correct framework flags | HW | WIP |
 | REQ-APF-02 | P0 | Platform definition: `dist/platforms/<id>.json` (category "Console", name "32X", manufacturer Sega, year 1994) and platform image `.bin`. Replace the `ex_platform` placeholders | HW | WIP |
 | REQ-APF-03 | P0 | `data.json` cartridge ROM slot (`.32x`, also `.bin`/`.md`/`.gen` for plain Genesis) | HW | DONE |
-| REQ-APF-03a | P0 | BIOS available to the core. **Phase 1 (acceptable end state for personal use):** embedded at build time from gitignored `bios/` files. Build fails clearly if they're missing | FIT | WIP |
+| REQ-APF-03a | P0 | BIOS available to the core. **Phase 1 (acceptable end state for personal use):** embedded at build time from gitignored `bios/` files. Build fails clearly if they're missing | FIT | DONE |
 | REQ-APF-03b | P2 | BIOS loaded at runtime from data slots instead (68K, master SH-2, slave SH-2 in `Assets/<platform>/common/`), with a visible error if missing. Needed only if the core is ever shared publicly | HW | TODO |
 | REQ-APF-04 | P0 | Bridge-driven loading: data-slot writes land in the correct external memory / BRAM, with core held in reset until loading completes (`dataslot_allcomplete`) | HW | DONE |
 | REQ-APF-05 | P0 | Replace template `icon.bin` and `info.txt` with project-specific content | HW | TODO |
@@ -90,7 +90,7 @@ Update the status column in the same commit that completes a requirement.
 | REQ-MEM-01 | P0 | SDRAM controller for the Pocket's 64 MB SDRAM, multi-port: cart ROM (68K + SH-2 + Z80 bank), loader writes, and (if chosen) 32X SDRAM + save RAM, with bounded latency | HW | DONE |
 | REQ-MEM-02 | P0 | Framebuffer storage in external memory (SRAM proposed) supporting 32X VDP scanout, SH-2 reads/writes, and VDP auto-fill, with FB swap semantics | HW | DONE |
 | REQ-MEM-03 | P0 | 32X SDRAM (256 KB) in external memory with wait-state behavior close to real hardware | HW | WIP |
-| REQ-MEM-04 | P0 | BIOS images in BRAM (initialized at build time, or loaded from data slots per REQ-APF-03b). Correct mapping at SH-2 0x00000000 and 68K vector area | SIM | TODO |
+| REQ-MEM-04 | P0 | BIOS images in BRAM (initialized at build time, or loaded from data slots per REQ-APF-03b). Correct mapping at SH-2 0x00000000 and 68K vector area | SIM | WIP |
 | REQ-MEM-05 | P0 | Genesis internal RAMs (68K 64 KB, Z80 8 KB, VRAM 64 KB, CRAM, VSRAM) in BRAM | FIT | DONE |
 | REQ-MEM-06 | P1 | Memory self-test mode (debug build) that exercises each external RAM and reports pass/fail on screen | HW | DONE |
 
@@ -107,12 +107,12 @@ Update the status column in the same commit that completes a requirement.
 
 | ID | Pri | Requirement | Verify | Status |
 |---|---|---|---|---|
-| REQ-S32X-01 | P0 | Two SH7604 instances (master/slave) with caches, DMAC, DIVU, MULT, FRT, INTC, WDT as needed by games | HW | TODO |
-| REQ-S32X-02 | P0 | 68K-side interface: adapter control, interrupt control, bank set, DREQ FIFO, comm ports, SEGA TV register, 68K ROM windows at 0x880000 / 0x900000 | HW | TODO |
-| REQ-S32X-03 | P0 | SH-2-side system registers: interrupt mask, standby, H-count, DREQ, comm ports, PWM regs, SH-2 view of cart at 0x02000000 | HW | TODO |
-| REQ-S32X-04 | P0 | 32X VDP: packed-pixel, direct-color and run-length modes. Line table. Shift. Auto-fill. FB swap at VBlank. 256-color palette | HW | TODO |
-| REQ-S32X-05 | P0 | Video compositing with Genesis VDP using 32X priority bit and "32X layer enable" semantics | HW | TODO |
-| REQ-S32X-06 | P0 | PWM audio (2 ch) with cycle register and FIFO/timer interrupt | HW | TODO |
+| REQ-S32X-01 | P0 | Two SH7604 instances (master/slave) with caches, DMAC, DIVU, MULT, FRT, INTC, WDT as needed by games | HW | WIP |
+| REQ-S32X-02 | P0 | 68K-side interface: adapter control, interrupt control, bank set, DREQ FIFO, comm ports, SEGA TV register, 68K ROM windows at 0x880000 / 0x900000 | HW | WIP |
+| REQ-S32X-03 | P0 | SH-2-side system registers: interrupt mask, standby, H-count, DREQ, comm ports, PWM regs, SH-2 view of cart at 0x02000000 | HW | WIP |
+| REQ-S32X-04 | P0 | 32X VDP: packed-pixel, direct-color and run-length modes. Line table. Shift. Auto-fill. FB swap at VBlank. 256-color palette | HW | WIP |
+| REQ-S32X-05 | P0 | Video compositing with Genesis VDP using 32X priority bit and "32X layer enable" semantics | HW | WIP |
+| REQ-S32X-06 | P0 | PWM audio (2 ch) with cycle register and FIFO/timer interrupt | HW | WIP |
 | REQ-S32X-07 | P0 | BIOS boot flow completes: security check, "SEGA" / 32X startup, handoff to game | HW | TODO |
 | REQ-S32X-08 | P1 | Correct cycle timing / wait states for SH-2 accesses to cart, SDRAM, FB, VDP registers (the timing-sensitive games in REQ-QA-03 behave) | HW | TODO |
 | REQ-S32X-09 | P1 | Running 32X ROMs with no BIOS present, via HLE boot, is **out of scope**. Documented, not implemented | DOC | TODO |
