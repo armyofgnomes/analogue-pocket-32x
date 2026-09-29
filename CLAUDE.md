@@ -90,8 +90,12 @@ runner with Quartus, if added later).
 The owner's machine has Quartus Prime Lite 25.1std at `~/altera_lite/25.1std/quartus/bin/`,
 so a local session can run the full build headless.
 
+**One command:** `tools/build.sh` does all of the steps below. `tools/build.sh --memtest` builds the
+memory self-test variant (REQ-MEM-06).
+
 1. Compile: `cd src/fpga && quartus_sh --flow compile ap_core` (or open `ap_core.qpf` in the
-   GUI). Output: `src/fpga/output_files/ap_core.rbf`.
+   GUI). Output: `src/fpga/output_files/ap_core.rbf`. The pre-flow hook patches the upstream
+   submodule and generates the BIOS `.mif` files.
 2. `tools/reverse_bits.py` bit-reverses each byte of the `.rbf` into `output/bitstream.rbf_r`,
    the format the Pocket requires.
 3. `tools/package.py [--zip]` stages an SD-card tree in `build/sdcard/` (layout per

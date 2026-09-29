@@ -285,12 +285,6 @@ assign cram1_we_n = 1;
 assign cram1_ub_n = 1;
 assign cram1_lb_n = 1;
 
-assign sram_a = 'h0;
-assign sram_dq = {16{1'bZ}};
-assign sram_oe_n  = 1;
-assign sram_we_n  = 1;
-assign sram_ub_n  = 1;
-assign sram_lb_n  = 1;
 
 assign dbg_tx = 1'bZ;
 assign user1 = 1'bZ;
@@ -585,6 +579,7 @@ endfunction
     wire            sys_ce_pix, sys_hblank, sys_vblank, sys_hs_n, sys_vs_n;
     wire    [1:0]   sys_resolution;
     wire    [15:0]  sys_audio_l, sys_audio_r;
+    wire    [33:0]  memtest_status;
 
 s32x_system system (
     .clk_sys        ( clk_sys ),
@@ -626,8 +621,53 @@ s32x_system system (
     .SDRAM_nRAS     ( dram_ras_n ),
     .SDRAM_nCAS     ( dram_cas_n ),
     .SDRAM_CLK      ( dram_clk ),
-    .SDRAM_CKE      ( dram_cke )
+    .SDRAM_CKE      ( dram_cke ),
+
+    .SRAM_A         ( sram_a ),
+    .SRAM_DQ        ( sram_dq ),
+    .SRAM_OE_N      ( sram_oe_n ),
+    .SRAM_WE_N      ( sram_we_n ),
+    .SRAM_UB_N      ( sram_ub_n ),
+    .SRAM_LB_N      ( sram_lb_n ),
+
+    .memtest_status ( memtest_status )
 );
+
+// Memory self-test overlay (MEMTEST builds): two bars near the top of the picture.
+// Rows 8-23: framebuffer SRAM. Rows 32-47: 32X SDRAM region.
+// Red = a failure was seen. Otherwise green, length = completed passes (mod 256, 1 px each),
+// yellow before the first pass completes.
+    reg     [8:0]   ov_x;
+    reg     [8:0]   ov_y;
+    reg             ov_hbl_prev;
+    reg     [23:0]  ov_rgb;
+    reg             ov_on;
+always @(posedge clk_sys) begin
+    if (sys_ce_pix) begin
+        ov_hbl_prev <= sys_hblank;
+        if (sys_hblank) ov_x <= 0; else ov_x <= ov_x + 1'd1;
+        if (sys_vblank) ov_y <= 0;
+        else if (sys_hblank & ~ov_hbl_prev) ov_y <= ov_y + 1'd1;
+    end
+end
+always @(*) begin
+    ov_on  = 0;
+    ov_rgb = 24'h000000;
+`ifdef MEMTEST
+    if (ov_y >= 8 && ov_y < 24) begin
+        ov_on  = 1;
+        ov_rgb = memtest_status[16] ? 24'hFF0000 :
+                 memtest_status[15:0] == 0 ? 24'hFFFF00 :
+                 (ov_x < memtest_status[7:0]) ? 24'h00FF00 : 24'h204020;
+    end
+    else if (ov_y >= 32 && ov_y < 48) begin
+        ov_on  = 1;
+        ov_rgb = memtest_status[33] ? 24'hFF0000 :
+                 memtest_status[32:17] == 0 ? 24'hFFFF00 :
+                 (ov_x < memtest_status[24:17]) ? 24'h00FF00 : 24'h204020;
+    end
+`endif
+end
 
 ////////////////////////////////////////////////////////////////////////////////////////
 // Video to the Pocket scaler
@@ -644,7 +684,7 @@ s32x_system system (
     reg     [1:0]   pix_res;
 always @(posedge clk_sys) begin
     if (sys_ce_pix) begin
-        pix_rgb <= {sys_r, sys_g, sys_b};
+        pix_rgb <= ov_on ? ov_rgb : {sys_r, sys_g, sys_b};
         pix_hs  <= ~sys_hs_n;
         pix_vs  <= ~sys_vs_n;
         pix_hbl <= sys_hblank;

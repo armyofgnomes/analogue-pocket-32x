@@ -56,7 +56,19 @@ module s32x_system
 	output        SDRAM_nRAS,
 	output        SDRAM_nCAS,
 	output        SDRAM_CLK,
-	output        SDRAM_CKE
+	output        SDRAM_CKE,
+
+	// Async SRAM (32X framebuffers)
+	output [16:0] SRAM_A,
+	inout  [15:0] SRAM_DQ,
+	output        SRAM_OE_N,
+	output        SRAM_WE_N,
+	output        SRAM_UB_N,
+	output        SRAM_LB_N,
+
+	// Memory self-test status (MEMTEST builds; zero otherwise):
+	// {sdram_fail, sdram_passes[15:0], sram_fail, sram_passes[15:0]}
+	output [33:0] memtest_status
 );
 
 ///////////////////////////////////////////////////
@@ -311,6 +323,54 @@ CART cart
 );
 
 ///////////////////////////////////////////////////
+// 32X framebuffers in SRAM (fb_sram.sv). Until the 32X block is instantiated (M4), only the
+// MEMTEST build drives them.
+
+wire [15:0] FB0_A, FB0_DO, FB0_DI, FB1_A, FB1_DO, FB1_DI;
+wire  [1:0] FB0_WE, FB1_WE;
+wire        FB0_RD, FB1_RD, FB_FS;
+
+reg  [1:0] ram_reset_sync;
+always @(posedge clk_ram) ram_reset_sync <= {ram_reset_sync[0], ~pll_locked};
+
+fb_sram fb_sram
+(
+	.clk_ram(clk_ram),
+	.reset(ram_reset_sync[1]),
+	.FB0_A(FB0_A), .FB0_DO(FB0_DO), .FB0_WE(FB0_WE), .FB0_RD(FB0_RD), .FB0_DI(FB0_DI),
+	.FB1_A(FB1_A), .FB1_DO(FB1_DO), .FB1_WE(FB1_WE), .FB1_RD(FB1_RD), .FB1_DI(FB1_DI),
+	.FB_FS(FB_FS),
+	.sram_a(SRAM_A), .sram_dq(SRAM_DQ), .sram_oe_n(SRAM_OE_N), .sram_we_n(SRAM_WE_N),
+	.sram_ub_n(SRAM_UB_N), .sram_lb_n(SRAM_LB_N)
+);
+
+// 32X SDRAM port (sdram.sv port 0)
+wire [24:1] s32x_sdr_addr;
+wire        s32x_sdr_rd;
+wire  [1:0] s32x_sdr_wr;
+wire [15:0] s32x_sdr_din;
+
+`ifdef MEMTEST
+memtest memtest
+(
+	.clk(clk_sys),
+	.reset(reset),
+	.FB0_A(FB0_A), .FB0_DO(FB0_DO), .FB0_WE(FB0_WE), .FB0_RD(FB0_RD), .FB0_DI(FB0_DI),
+	.FB1_A(FB1_A), .FB1_DO(FB1_DO), .FB1_WE(FB1_WE), .FB1_RD(FB1_RD), .FB1_DI(FB1_DI),
+	.FB_FS(FB_FS),
+	.sdr_addr(s32x_sdr_addr), .sdr_rd(s32x_sdr_rd), .sdr_wr(s32x_sdr_wr), .sdr_din(s32x_sdr_din),
+	.sdr_dout(sdr_do[0]), .sdr_busy(sdr_busy[0]),
+	.sram_passes(memtest_status[15:0]), .sram_fail(memtest_status[16]),
+	.sdram_passes(memtest_status[32:17]), .sdram_fail(memtest_status[33])
+);
+`else
+assign {FB0_A, FB0_DO, FB0_WE, FB0_RD, FB1_A, FB1_DO, FB1_WE, FB1_RD} = '0;
+assign FB_FS = 1'b0;
+assign {s32x_sdr_addr, s32x_sdr_rd, s32x_sdr_wr, s32x_sdr_din} = '0;
+assign memtest_status = '0;
+`endif
+
+///////////////////////////////////////////////////
 // SDRAM (upstream sdram.sv, Pocket timing patch). Byte addresses, 32 MB usable:
 //   0x0000000-0x0FFFFFF  cart ROM (port 1 reads, port 3 loader writes)
 //   0x1000000-0x103FFFF  reserved: 32X SDRAM (port 0, M3)
@@ -333,10 +393,10 @@ sdram sdram
 	.init(~pll_locked),
 	.clk(clk_ram),
 
-	.addr0(24'd0),
-	.rd0(1'b0),
-	.wr0(2'b00),
-	.din0(16'd0),
+	.addr0(s32x_sdr_addr),
+	.rd0(s32x_sdr_rd),
+	.wr0(s32x_sdr_wr),
+	.din0(s32x_sdr_din),
 	.dout0(sdr_do[0]),
 	.busy0(sdr_busy[0]),
 
