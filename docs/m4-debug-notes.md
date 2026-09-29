@@ -28,13 +28,29 @@ came back with the same 16-bit half twice (`0x06000124 -> d116d116`, `0x06000184
 a literal load sent it to 0x4F224F22, and the exception vector (0x06000010 read as 0x00002010) put
 it at 0x2010/0x2014.
 
-Cause: our port-0 adapter in `s32x_system.sv` (953f26c) issued one SDRAM request per assertion of
-CS3 and RD/WE. The SH-2 does a 32-bit access to the 16-bit SDRAM as two 16-bit bus cycles with CS3
-and RD held across both; only the address changes. So the second half never reached the SDRAM
-and returned the first half's data. Fix: a change of address or direction while the request is
-held is a new access (the port request drops for one clk_sys cycle, WAIT stays asserted). This can
-break any code running from the 32X SDRAM on either CPU, which fits the broad hardware failures.
-Pocket build ready (see test log); full-system verification run pending.
+Cause (confirmed with an SDRAM port trace): the SH-2 bus controller runs area 3 in SDRAM mode
+(`BSC.sv` states TRAS/TRCAS/TRD/TWCAS). It honors WAIT only on the first beat of a read (TRCAS);
+the other beats of a burst (a 16-byte cache-line fill is 8 beats, starting at the critical word
+and wrapping) follow one per SH-2 cycle. Writes honor WAIT once per beat (TRAS). Our port-0
+adapter (953f26c) served one 16-bit word per sdram.sv request (about 9 clk_ram each), so most
+burst beats went by while the port was still busy: in the trace only 3 of the 8 addresses of the
+first line fill were even requested, and the other beats latched stale data. MiSTer's default
+build doesn't hit this because its `ddram.sv` has a 16-byte line cache: a miss holds WAIT until
+the whole line is fetched and the remaining beats are served from the cache.
+
+A first fix (1d1c55a: re-issue when the address changes while CS/RD are held) did not help,
+because the beats don't wait; the full-system run showed the identical failure.
+
+Fix: `src/fpga/core/s32x_sdram_front.sv` in front of port 0, doing what `ddram.sv` does: a 16-byte
+read line buffer (a miss holds WAIT while all 8 words are fetched, then the burst is served from
+the buffer), and an 8-entry write queue (write beats are queued, WAIT only when full; a write that
+hits the buffer updates it; the queue drains before line fills). `sim/sdram_front` drives it the
+way the BSC does (bursts, 1- and 2-beat reads, 1- and 2-beat writes waiting in TRAS, random port-1
+traffic) with the real sdram.sv and chip model: about 72k read beats and 12k write beats per seed
+match a shadow memory on three seeds. The first version had no backpressure and lost writes when
+back-to-back write beats outran the queue; that is why writes now wait on a full queue.
+Full-system verification and the Pocket build are next. Performance note: a line miss costs 8
+single-word SDRAM reads (about 1.3 us); an sdram.sv burst mode would cut that a lot.
 
 The first build with this fix missed setup by 0.38 ns on SDRAM port 1 (68K bus arbiter through the
 cart mapper into `sdram.sv`'s request registers, half a clk_sys cycle). Patch 0007 now copies every

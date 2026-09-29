@@ -432,43 +432,20 @@ S32X #(
 	.DBG_CA()
 );
 
-// 32X SDRAM (256 KB) on sdram.sv port 0 at 0x1000000.
-//
-// The SH-2 bus WAIT inside the 32X is global (32X.sv: SHWAIT_N = IF_WAIT_N & ~SDR_WAIT), so WAIT
-// is only asserted during an SDRAM access, from the request until its data/write is done.
-// sdram.sv's port is edge-triggered with a per-request busy, so accesses are serialized: one is
-// presented only after the previous one has completed.
-//
-// The SH-2 makes a 32-bit access to this 16-bit memory as two 16-bit bus cycles and keeps CS3 and
-// RD (or the write strobes) asserted across both; only the address (and for writes the byte
-// enables) change. So an access is identified by its address and direction, not by the strobes:
-// when they change while the request is held, the port request drops for one clk_sys cycle (one
-// mid clk_ram edge, so sdram.sv sees the falling edge) and the new access is issued. Without this
-// the second half returned the first half's data (full-system sim: the slave SH-2 read its code
-// as d116d116, e000e000, ... and crashed right after the BIOS handed over to the game).
-wire        s32x_req_rd = S32X_SDR_CS & S32X_SDR_RD;
-wire  [1:0] s32x_req_wr = S32X_SDR_WE & {2{S32X_SDR_CS}};
-wire        s32x_req    = s32x_req_rd | (|s32x_req_wr);
-reg         s32x_issued = 0;
-reg         s32x_p_rd = 0;
-reg   [1:0] s32x_p_wr = 0;
-reg  [19:0] s32x_key = 0;                                    // address and direction issued
-wire [19:0] s32x_cur_key = {S32X_SDR_A, s32x_req_rd, s32x_req_wr};
-wire        s32x_new_acc = s32x_issued && (s32x_cur_key != s32x_key);
-always @(posedge clk_sys) begin
-	if (!s32x_req || s32x_new_acc) begin
-		s32x_issued <= 0;
-		s32x_p_rd   <= 0;
-		s32x_p_wr   <= 0;
-	end
-	else if (!s32x_issued && !sdr_busy[0]) begin
-		s32x_issued <= 1;
-		s32x_p_rd   <= s32x_req_rd;
-		s32x_p_wr   <= s32x_req_wr;
-		s32x_key    <= s32x_cur_key;
-	end
-end
-// WAIT only during an SDRAM cycle, from the request until its completion.
+// 32X SDRAM (256 KB) on sdram.sv port 0 at 0x1000000, through s32x_sdram_front.sv (16-byte read
+// line buffer and a write queue, like MiSTer's ddram.sv): the SH-2 treats this area as SDRAM and
+// only honors WAIT on the first beat of a read burst, never on writes.
+wire [15:0] s32x_front_q;
+wire        s32x_front_wait, s32x_front_ovf;
+s32x_sdram_front s32x_sdram_front
+(
+	.clk(clk_sys), .reset(sys_reset),
+	.a(S32X_SDR_A), .d(S32X_SDR_DO), .cs(S32X_SDR_CS), .rd(S32X_SDR_RD), .we(S32X_SDR_WE),
+	.q(s32x_front_q), .wait_o(s32x_front_wait),
+	.p_addr(s32x_sdr_addr), .p_rd(s32x_sdr_rd), .p_wr(s32x_sdr_wr), .p_din(s32x_sdr_din),
+	.p_dout(sdr_do[0]), .p_busy(sdr_busy[0]),
+	.overflow(s32x_front_ovf)
+);
 `ifdef SIM_DDRAM_REF
 // Sim-only reference (+define+SIM_DDRAM_REF): the 32X SDRAM exactly as MiSTer's default build
 // serves it, through upstream ddram.sv (16-byte line cache, registered busy) in front of a simple
@@ -533,16 +510,11 @@ assign s32x_fb0_di   = ref_fb0_q;
 assign s32x_fb1_di   = ref_fb1_q;
 assign s32x_sdr_wait = 1'b0;
 `else
-assign s32x_sdr_di   = sdr_do[0];
+assign s32x_sdr_di   = s32x_front_q;
 assign s32x_fb0_di   = FB0_DI;
 assign s32x_fb1_di   = FB1_DI;
-assign s32x_sdr_wait = s32x_req & (~s32x_issued | s32x_new_acc | sdr_busy[0]);
+assign s32x_sdr_wait = s32x_front_wait;
 `endif
-
-assign s32x_sdr_addr = {7'b1000000, S32X_SDR_A};
-assign s32x_sdr_rd   = s32x_p_rd;
-assign s32x_sdr_wr   = s32x_p_wr;
-assign s32x_sdr_din  = S32X_SDR_DO;
 `endif
 
 ///////////////////////////////////////////////////

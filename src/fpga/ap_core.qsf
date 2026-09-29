@@ -757,6 +757,7 @@ set_global_assignment -name VERILOG_FILE core/pll_core.v
 set_global_assignment -name SYSTEMVERILOG_FILE core/s32x_system.sv
 set_global_assignment -name SYSTEMVERILOG_FILE core/fb_sram.sv
 set_global_assignment -name SYSTEMVERILOG_FILE core/memtest.sv
+set_global_assignment -name SYSTEMVERILOG_FILE core/s32x_sdram_front.sv
 set_global_assignment -name SYSTEMVERILOG_FILE core/rtl/agg23/data_loader.sv
 set_global_assignment -name SYSTEMVERILOG_FILE core/rtl/agg23/sound_i2s.sv
 set_global_assignment -name SYSTEMVERILOG_FILE core/rtl/agg23/sync_fifo.sv
