@@ -343,6 +343,34 @@ always @(posedge clk_sys) if (cart_log_ms >= 0 && $realtime >= cart_log_ms * 1e6
 	end
 end
 
+// Every bus access of each SH-2 core as the core sees it (address, data in/out, write, PC), from
+// +mlog_ms / +slog_ms (or fields 7/8 of trace_cfg.txt, in ns), first 400 per CPU.
+real mlog_start = -1, slog_start = -1;
+int  n_mlog = 0, n_slog = 0;
+initial begin
+	real v;
+	if ($value$plusargs("mlog_ms=%f", v)) mlog_start = v * 1e6;
+	if ($value$plusargs("slog_ms=%f", v)) slog_start = v * 1e6;
+end
+always @(posedge clk_sys) begin
+	if (mlog_start >= 0 && $realtime >= mlog_start && n_mlog < 400 && dut.S32X.MSH.core.CE &&
+	    dut.S32X.MSH.core.BUS_REQ && !dut.S32X.MSH.core.BUS_WAIT) begin
+		n_mlog++;
+		$display("%t MLOG %s A=%08h D=%08h BA=%b id=%b PC=%08h", $realtime, dut.S32X.MSH.core.BUS_WR ? "WR" : "RD",
+		         dut.S32X.MSH.core.BUS_A, dut.S32X.MSH.core.BUS_WR ? dut.S32X.MSH.core.BUS_DO : dut.S32X.MSH.core.BUS_DI,
+		         dut.S32X.MSH.core.BUS_BA, dut.S32X.MSH.core.BUS_ID, dut.S32X.MSH.core.PC);
+	end
+	// (skips the slave BIOS's delay-loop instruction fetches at 0x1C0-0x1D7, which run uncached)
+	if (slog_start >= 0 && $realtime >= slog_start && n_slog < 2000 && dut.S32X.SSH.core.CE &&
+	    dut.S32X.SSH.core.BUS_REQ && !dut.S32X.SSH.core.BUS_WAIT &&
+	    !(dut.S32X.SSH.core.BUS_ID && dut.S32X.SSH.core.BUS_A >= 32'h1C0 && dut.S32X.SSH.core.BUS_A < 32'h1D8)) begin
+		n_slog++;
+		$display("%t SLOG %s A=%08h D=%08h BA=%b id=%b PC=%08h", $realtime, dut.S32X.SSH.core.BUS_WR ? "WR" : "RD",
+		         dut.S32X.SSH.core.BUS_A, dut.S32X.SSH.core.BUS_WR ? dut.S32X.SSH.core.BUS_DO : dut.S32X.SSH.core.BUS_DI,
+		         dut.S32X.SSH.core.BUS_BA, dut.S32X.SSH.core.BUS_ID, dut.S32X.SSH.core.PC);
+	end
+end
+
 // Master SH-2 register-file writes every clock in [rf_start, rf_end] ns (+rf_start/+rf_end, ACC=1)
 real rf_start = -1, rf_end = -1;
 initial begin
@@ -375,22 +403,26 @@ end
 
 // Trace windows can be re-set at run time from trace_cfg.txt in the run directory (+trace_cfg; checked
 // every 100 us), so a checkpoint restored with RESTORE=1 can be probed without re-simulating:
-//   "<win_start> <win_end> <core_start> <core_end> [<rf_start> <rf_end>]" in ns (-1 = off)
+//   "<win_start> <win_end> <core_start> <core_end> [<rf_start> <rf_end> [<mlog> <slog>]]" in ns (-1 = off)
 bit trace_cfg;
 initial trace_cfg = $test$plusargs("trace_cfg");   // opt-in: $fopen warns every time the file is missing
 always begin
 	#(100us);
 	if (trace_cfg) begin
 		int fd, n;
-		real a, b, c, d, e, f;
+		real a, b, c, d, e, f, g, h;
 		fd = $fopen("trace_cfg.txt", "r");
 		if (fd) begin
-			n = $fscanf(fd, "%f %f %f %f %f %f", a, b, c, d, e, f);
+			n = $fscanf(fd, "%f %f %f %f %f %f %f %f", a, b, c, d, e, f, g, h);
 			if (n >= 4) begin
 				win_start = a; win_end = b; core_start = c; core_end = d;
 			end
-			if (n == 6) begin
+			if (n >= 6) begin
 				rf_start = e; rf_end = f;
+			end
+			if (n == 8) begin
+				if (g >= 0 && g != mlog_start) begin mlog_start = g; n_mlog = 0; end
+				if (h >= 0 && h != slog_start) begin slog_start = h; n_slog = 0; end
 			end
 			$fclose(fd);
 		end

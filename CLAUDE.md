@@ -24,10 +24,12 @@ the same commit.
 M0 through M3 are done: tooling, our own build on hardware, Genesis games on the Pocket, and
 the memory subsystem (SDRAM ports plus both 32X framebuffers in the async SRAM) proven by the
 memtest build. M4 (32X games boot) is in progress. The full Genesis + 32X system fits at about
-90% of ALMs with timing met. On hardware the 32X boots and Doom runs, but its 32X layer has been
-corrupted, and Kolibri shows a black screen (the full-system sim traps its master SH-2 at
-56.8 ms). See `docs/test-log.md` for the latest hardware results. The repo started as
-`open-fpga/core-template` v1.3.0 (commit `da3a021`).
+90% of ALMs with timing met. On hardware the 32X boots and Doom runs with a corrupted 32X layer;
+most other 32X games show black screens. The full-system sim (`sim/system`) reproduces Kolibri's
+failure: its slave SH-2 jumps to garbage after the BIOS hands off. See `docs/test-log.md` for the
+latest hardware results and **`docs/m4-debug-notes.md` for the current investigation (lead,
+ruled-out causes, simulation toolkit, next step)**. The repo started as `open-fpga/core-template`
+v1.3.0 (commit `da3a021`).
 
 ## Repository layout
 
