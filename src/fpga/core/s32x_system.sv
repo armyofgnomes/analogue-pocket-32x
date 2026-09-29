@@ -114,6 +114,70 @@ always @(posedge clk_sys) begin
 	end
 end
 
+// Per-game cartridge quirks from the header's product code at 0x180 (as upstream S32X.sv): EEPROM
+// save chips (Acclaim/EA/Sega carts, e.g. NBA Jam TE 32X hangs at start without its EEPROM), Puggsy's
+// fake RAM check, Hellfire's FM busy flag, Game no Kanzume's writable ROM area, the SF-00x mappers
+// and the Realtec mapper. Lightgun timing, Pier Solar and the SVP (Virtua Racing) don't apply here.
+reg  [3:0] eeprom_map;
+reg        realtec_map, noram_quirk, fmbusy_quirk, schan_quirk;
+reg  [2:0] sf_map;
+always @(posedge clk_sys) begin
+	reg        old_loading;
+	reg [87:0] cart_id;
+	reg [15:0] crc;
+	reg [31:0] realtec_id;
+	old_loading <= rom_loading;
+
+	if (~old_loading & rom_loading) {eeprom_map, realtec_map, noram_quirk, fmbusy_quirk, schan_quirk, sf_map} <= 0;
+
+	if (rom_loading & rom_wr) begin
+		if (rom_wr_addr == 24'h180) cart_id[87:72] <= {rom_wr_data[7:0], rom_wr_data[15:8]};
+		if (rom_wr_addr == 24'h182) cart_id[71:56] <= {rom_wr_data[7:0], rom_wr_data[15:8]};
+		if (rom_wr_addr == 24'h184) cart_id[55:40] <= {rom_wr_data[7:0], rom_wr_data[15:8]};
+		if (rom_wr_addr == 24'h186) cart_id[39:24] <= {rom_wr_data[7:0], rom_wr_data[15:8]};
+		if (rom_wr_addr == 24'h188) cart_id[23:08] <= {rom_wr_data[7:0], rom_wr_data[15:8]};
+		if (rom_wr_addr == 24'h18A) cart_id[07:00] <= rom_wr_data[7:0];
+		if (rom_wr_addr == 24'h18E) crc <= {rom_wr_data[7:0], rom_wr_data[15:8]};
+		if (rom_wr_addr == 24'h190) begin
+			if     (cart_id[63:0] == "T-50446 ") eeprom_map   <= 4'b0001;  // John Madden Football 93
+			else if(cart_id[63:0] == "T-50516 ") eeprom_map   <= 4'b0001;  // John Madden Football 93 Championship Edition
+			else if(cart_id[63:0] == "T-50396 ") eeprom_map   <= 4'b0001;  // NHLPA Hockey 93
+			else if(cart_id[63:0] == "T-50176 ") eeprom_map   <= 4'b0001;  // Rings of Power
+			else if(cart_id[63:0] == "T-50606 ") eeprom_map   <= 4'b0001;  // Bill Walsh College Football
+			else if(cart_id[63:0] == "MK-1215 ") eeprom_map   <= 4'b0010;  // Evander Real Deal Holyfield's Boxing
+			else if(cart_id[63:0] == "G-4060  ") eeprom_map   <= 4'b0010;  // Wonder Boy
+			else if(cart_id[63:0] == "00001211") eeprom_map   <= 4'b0010;  // Sports Talk Baseball
+			else if(cart_id[63:0] == "MK-1228 ") eeprom_map   <= 4'b0010;  // Greatest Heavyweights
+			else if(cart_id[63:0] == "G-5538  ") eeprom_map   <= 4'b0010;  // Greatest Heavyweights JP
+			else if(cart_id[63:0] == "00004076") eeprom_map   <= 4'b0010;  // Honoo no Toukyuuji Dodge Danpei
+			else if(cart_id[63:0] == "T-12046 ") eeprom_map   <= 4'b0010;  // Mega Man - The Wily Wars
+			else if(cart_id[63:0] == "T-12053 ") eeprom_map   <= 4'b0010;  // Rockman Mega World
+			else if(cart_id[63:0] == "G-4524  ") eeprom_map   <= 4'b0010;  // Ninja Burai Densetsu
+			else if(cart_id[63:0] == "00054503") eeprom_map   <= 4'b0010;  // Game Toshokan
+			else if(cart_id[63:0] == "T-81033 ") eeprom_map   <= 4'b0011;  // NBA Jam (J)
+			else if(cart_id[63:0] == "T-081326") eeprom_map   <= 4'b0011;  // NBA Jam (U)(E)
+			else if(cart_id[63:0] == "T-081276") eeprom_map   <= 4'b1011;  // NFL Quarterback Club
+			else if(cart_id[63:0] == "T-81406 ") eeprom_map   <= 4'b1011;  // NBA Jam TE
+			else if(cart_id[63:0] == "T-081586") eeprom_map   <= 4'b1100;  // NFL Quarterback Club '96
+			else if(cart_id[63:0] == "T-81576 ") eeprom_map   <= 4'b1101;  // College Slam
+			else if(cart_id[63:0] == "T-81476 ") eeprom_map   <= 4'b1101;  // Frank Thomas Big Hurt Baseball
+			else if(cart_id[63:0] == "T-8104B ") eeprom_map   <= 4'b1011;  // NBA Jam TE (32X)
+			else if(cart_id[63:0] == "T-8102B ") eeprom_map   <= 4'b1011;  // NFL Quarterback Club (32X)
+			else if(cart_id[63:0] == "T-113016") noram_quirk  <= 1;        // Puggsy fake RAM check
+			else if(cart_id[63:0] == "T-35036 ") fmbusy_quirk <= 1;        // Hellfire US
+			else if(cart_id[63:0] == "T-25073 ") fmbusy_quirk <= 1;        // Hellfire JP
+			else if(cart_id[63:0] == "MK-1137-") fmbusy_quirk <= 1;        // Hellfire EU
+			else if(cart_id[63:0] == "T-68???-") schan_quirk  <= 1;        // Game no Kanzume Otokuyou
+			else if(cart_id[87:40] == "SF-001")  sf_map       <= {crc == 16'h3E08, 2'b01}; // Beggar Prince
+			else if(cart_id[87:40] == "SF-002")  sf_map       <= {1'b1, 2'b10};           // Legend of Wukong
+			else if(cart_id[87:40] == "SF-004")  sf_map       <= {1'b1, 2'b11};           // Star Odyssey
+		end
+		if (rom_wr_addr == 24'h7E100) realtec_id[31:16] <= {rom_wr_data[7:0], rom_wr_data[15:8]};
+		if (rom_wr_addr == 24'h7E102) realtec_id[15:0]  <= {rom_wr_data[7:0], rom_wr_data[15:8]};
+		if (rom_wr_addr == 24'h7E104 && realtec_id == "SEGA") realtec_map <= 1;   // Earth Defend, Funny World, Whac-a-Critter
+	end
+end
+
 // Region preference: US, then Japan, then Europe. No header region: US.
 // PAL is signalled to the VDP, but MCLK stays NTSC until REQ-ARCH-06 (PAL runs ~1% fast).
 reg export_r, pal_r;
@@ -238,7 +302,7 @@ gen gen
 	.EN_HIFI_PCM(1'b0),
 	.LADDER(1'b1),
 	.LPF_MODE(2'b00),
-	.FMBUSY_QUIRK(1'b0),
+	.FMBUSY_QUIRK(fmbusy_quirk),
 
 	.EXT_SL(S32X_SL),
 	.EXT_SR(S32X_SR),
@@ -561,10 +625,10 @@ CART cart
 `else
 	.s32x(1'b1),
 `endif
-	.eeprom_map(4'd0),
-	.noram_quirk(1'b0),
-	.realtec_map(1'b0),
-	.sf_map(3'd0)
+	.eeprom_map(eeprom_map),
+	.noram_quirk(noram_quirk),
+	.realtec_map(realtec_map),
+	.sf_map(sf_map)
 );
 
 // clk_ram (2x clk_sys, same PLL) samples clk_sys-domain requests only on the edge in mid clk_sys
@@ -656,7 +720,7 @@ sdram sdram
 
 	.addr1({1'b0, CART_ROM_A[23:1]}),
 	.rd1(CART_ROM_RD | CART_ROM_WRL | CART_ROM_WRH),
-	.wr1(2'b00),
+	.wr1({CART_ROM_WRH, CART_ROM_WRL} & {2{schan_quirk}}),
 	.din1(CART_ROM_DO),
 	.dout1(sdr_do[1]),
 	.busy1(sdr_busy[1]),

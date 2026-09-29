@@ -20,6 +20,16 @@ Latest Pocket build: **6a7d9cb** (SDRAM pins in I/O cells). Hardware results for
 
 No Pocket build is pending. The next build comes after the cause below is found and fixed.
 
+## Found (2026-09-29): NBA Jam TE hung at start (bars) because cart quirks weren't ported
+
+`s32x_system.sv` tied the cart module's `eeprom_map`, `noram_quirk`, `realtec_map`, `sf_map`, the
+Genesis `FMBUSY_QUIRK` and the port-1 write enable (`schan_quirk`) to 0. Upstream `S32X.sv` sets
+them from the header's product code at 0x180 (and the Realtec ID at 0x7E100). NBA Jam TE 32X
+(`T-8104B`) needs `eeprom_map = 4'b1011` for its save EEPROM and hangs without it. The table is
+now ported (minus lightgun timing, Pier Solar and SVP). It also fixes the same class of problem
+for the Genesis carts in the table (EA/Acclaim/Sega EEPROM games, Puggsy, Hellfire, ...).
+The EEPROM logic this keeps costs about 420 ALMs (17,023, 92%).
+
 ## Found (2026-09-29): 32-bit SH-2 accesses to the 32X SDRAM returned the first half twice
 
 The slave bus log (`+slog_ms`) showed the slave reading its header correctly (VBR 0x06000000,
