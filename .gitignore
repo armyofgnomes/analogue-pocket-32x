@@ -9,3 +9,6 @@
 /src/fpga/ap_core_assignment_defaults.qdf
 
 __pycache__/
+
+# Generated from bios/ at build time (copyrighted BIOS data, never commit)
+/src/fpga/core/bios_mif/

@@ -45,7 +45,7 @@ Update the status column in the same commit that completes a requirement.
 |---|---|---|---|---|
 | REQ-LEGAL-01 | P0 | Choose a project license compatible with imported GPL code (GPLv3 likely) and add `LICENSE` | DOC | DONE |
 | REQ-LEGAL-02 | P0 | Every imported third-party directory keeps its license and records upstream URL + commit | DOC | WIP |
-| REQ-LEGAL-03 | P0 | No copyrighted BIOS/ROM data committed to git. Strip upstream `mdbios.mif` / `shbios.mif` from imported code. Local BIOS goes in a gitignored `bios/` dir. A bitstream with embedded BIOS is fine for **personal use** but must never be published | DOC | TODO |
+| REQ-LEGAL-03 | P0 | No copyrighted BIOS/ROM data committed to git. Strip upstream `mdbios.mif` / `shbios.mif` from imported code. Local BIOS goes in a gitignored `bios/` dir. A bitstream with embedded BIOS is fine for **personal use** but must never be published | DOC | DONE |
 | REQ-LEGAL-04 | P1 | Credits/attribution in `README.md` and `info.txt` (srg320, Jorge Cwik/fx68k, Jose Tejada/jt12/jt89, T80 authors, Genesis core authors, Pocket port authors referenced) | DOC | TODO |
 
 ## 3. Architecture decisions (ARCH)
@@ -66,7 +66,7 @@ Update the status column in the same commit that completes a requirement.
 | REQ-APF-01 | P0 | `core.json`: real metadata (author, shortname, description, version, URL), `platform_ids` set to our platform, correct framework flags | HW | WIP |
 | REQ-APF-02 | P0 | Platform definition: `dist/platforms/<id>.json` (category "Console", name "32X", manufacturer Sega, year 1994) and platform image `.bin`. Replace the `ex_platform` placeholders | HW | WIP |
 | REQ-APF-03 | P0 | `data.json` cartridge ROM slot (`.32x`, also `.bin`/`.md`/`.gen` for plain Genesis) | HW | DONE |
-| REQ-APF-03a | P0 | BIOS available to the core. **Phase 1 (acceptable end state for personal use):** embedded at build time from gitignored `bios/` files. Build fails clearly if they're missing | FIT | TODO |
+| REQ-APF-03a | P0 | BIOS available to the core. **Phase 1 (acceptable end state for personal use):** embedded at build time from gitignored `bios/` files. Build fails clearly if they're missing | FIT | WIP |
 | REQ-APF-03b | P2 | BIOS loaded at runtime from data slots instead (68K, master SH-2, slave SH-2 in `Assets/<platform>/common/`), with a visible error if missing. Needed only if the core is ever shared publicly | HW | TODO |
 | REQ-APF-04 | P0 | Bridge-driven loading: data-slot writes land in the correct external memory / BRAM, with core held in reset until loading completes (`dataslot_allcomplete`) | HW | DONE |
 | REQ-APF-05 | P0 | Replace template `icon.bin` and `info.txt` with project-specific content | HW | TODO |

@@ -10,8 +10,10 @@ Instead, each local modification is a patch here, applied in name order by
 |---|---|
 | `0001-bram-no-runtime-mod.patch` | Turn off `ENABLE_RUNTIME_MOD` in `bram.vhd`. That MiSTer debug aid pulls a JTAG hub into the design (~58 ALMs, REQ-ARCH-04) |
 | `0002-sdram-pocket-timing.patch` | `sdram.sv`: tRCD 3 cycles and CAS latency 3 at 107 MHz for the Pocket's SDRAM (the values openFPGA-Genesis uses on hardware) |
+| `0003-bios-from-generated-mif.patch` | `MDROM.v`/`SHROM.v` load `core/bios_mif/*.mif`, generated from the gitignored `bios/` by `tools/gen_bios_mif.py`, instead of upstream's bundled BIOS `.mif` files (REQ-LEGAL-03, REQ-APF-03a) |
 
-To add a patch: edit files in the submodule, `git -C src/fpga/core/rtl/S32X_MiSTer diff > src/fpga/core/rtl/patches/NNNN-name.patch`,
+To add a patch: start from a clean checkout (`git -C src/fpga/core/rtl/S32X_MiSTer checkout -- .`,
+not the patched tree, or the diff will include the existing patches), edit files in the submodule, `git -C src/fpga/core/rtl/S32X_MiSTer diff > src/fpga/core/rtl/patches/NNNN-name.patch`,
 then run `tools/prepare_upstream.sh` to confirm the full series applies to a clean checkout.
 
 Licensing: S32X_MiSTer has no top-level LICENSE. fx68k, jt12/jt89 and `sdram.sv` are GPLv3,

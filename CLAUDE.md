@@ -65,7 +65,9 @@ src/fpga/core/core_bridge_cmd.v                   Host/target command handler (d
 - BIOS policy: the owner is fine with a personal-use-only core. **Embedding the BIOS in the
   bitstream is allowed** for personal builds. It's the fastest path to first boot. The
   BIOS files must live in a gitignored local directory (`bios/`) and get pulled in at build
-  time. Loading the BIOS from APF data slots, which keeps the bitstream shareable, is the
+  time: `bios/32X_G_BIOS.BIN` (68K, 256 B), `bios/32X_M_BIOS.BIN` (master SH-2, 2 KB) and
+  `bios/32X_S_BIOS.BIN` (slave SH-2, 1 KB). `tools/gen_bios_mif.py` turns them into gitignored
+  `.mif` files at build time. Loading the BIOS from APF data slots, which keeps the bitstream shareable, is the
   preferred end state but isn't required. See REQ-APF-03 / REQ-LEGAL-03.
 - Mixed-language HDL is fine (Quartus handles Verilog, SystemVerilog and VHDL together).
   Upstream code keeps its original language.

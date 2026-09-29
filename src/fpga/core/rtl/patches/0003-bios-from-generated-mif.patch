@@ -1,0 +1,26 @@
+diff --git a/rtl/32X/MDROM.v b/rtl/32X/MDROM.v
+index 0e05742..089ee3f 100644
+--- a/rtl/32X/MDROM.v
++++ b/rtl/32X/MDROM.v
+@@ -86,7 +86,7 @@ module MDROM (
+ 	defparam
+ 		altsyncram_component.clock_enable_input_a = "BYPASS",
+ 		altsyncram_component.clock_enable_output_a = "BYPASS",
+-		altsyncram_component.init_file = "mdbios.mif",
++		altsyncram_component.init_file = "core/bios_mif/mdbios.mif",
+ 		altsyncram_component.intended_device_family = "Cyclone V",
+ 		altsyncram_component.lpm_hint = "ENABLE_RUNTIME_MOD=NO",
+ 		altsyncram_component.lpm_type = "altsyncram",
+diff --git a/rtl/32X/SHROM.v b/rtl/32X/SHROM.v
+index d018e8a..d00f86b 100644
+--- a/rtl/32X/SHROM.v
++++ b/rtl/32X/SHROM.v
+@@ -83,7 +83,7 @@ module SHROM (
+ 		altsyncram_component.address_aclr_a = "NONE",
+ 		altsyncram_component.clock_enable_input_a = "BYPASS",
+ 		altsyncram_component.clock_enable_output_a = "BYPASS",
+-		altsyncram_component.init_file = "shbios.mif",
++		altsyncram_component.init_file = "core/bios_mif/shbios.mif",
+ 		altsyncram_component.intended_device_family = "Cyclone V",
+ 		altsyncram_component.lpm_hint = "ENABLE_RUNTIME_MOD=NO",
+ 		altsyncram_component.lpm_type = "altsyncram",
