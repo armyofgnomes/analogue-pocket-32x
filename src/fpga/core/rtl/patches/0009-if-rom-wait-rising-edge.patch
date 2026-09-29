@@ -1,0 +1,14 @@
+--- a/rtl/32X/IF.sv
++++ b/rtl/32X/IF.sv
+@@ -783,7 +783,10 @@
+ 	
+ 	
+ 	bit        ROM_WAIT_SYNC;
+-	always @(negedge CLK) ROM_WAIT_SYNC <= ROM_WAIT;
++	// Pocket: sampled on the rising edge. On the falling edge the path from the SH-2 bus address
++	// through the cart mapper's SRAM decode (which selects the busy of the cart SRAM or ROM port) had
++	// half a cycle and failed timing; the state machine only waits for ROM_WAIT to rise, then fall.
++	always @(posedge CLK) ROM_WAIT_SYNC <= ROM_WAIT;
+ 	
+ 	bit [15:0] MD_ROM_DO;
+ 	bit        MD_ROM_DTACK_N;

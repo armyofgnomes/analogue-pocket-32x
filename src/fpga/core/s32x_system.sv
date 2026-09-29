@@ -340,6 +340,15 @@ wire [7:0] color_lut[16] = '{
 	8'd146, 8'd157, 8'd174, 8'd190,
 	8'd206, 8'd228, 8'd255, 8'd255
 };
+// Lock the resolution for the whole frame (as upstream S32X.sv)
+reg  [1:0] res;
+always @(posedge clk_sys) begin
+	reg old_vbl;
+	old_vbl <= vblank;
+	if (old_vbl & ~vblank) res <= gen_resolution;
+end
+assign resolution = res;
+
 wire  [4:0] S32X_R, S32X_G, S32X_B;
 wire        S32X_YSO_N, S32X_HBLANK, S32X_DOT_CE;
 
@@ -356,18 +365,14 @@ assign ce_pix = GEN_DOT_CE;
 assign r = !S32X_YSO_N ? {S32X_R, S32X_R[4:2]} : color_lut[GEN_R];
 assign g = !S32X_YSO_N ? {S32X_G, S32X_G[4:2]} : color_lut[GEN_G];
 assign b = !S32X_YSO_N ? {S32X_B, S32X_B[4:2]} : color_lut[GEN_B];
-assign hblank = S32X_HBLANK;
-assign ce_pix = S32X_DOT_CE;
+// In H32 the 32X VDP still outputs a 320-dot active line (at the H32 dot rate), 64 dots wider than
+// the Genesis picture, which the Pocket's 256-wide scaler mode showed shifted (Primal Rage's SEGA
+// logo, Mega Man: The Wily Wars). The 32X layer can't be used in H32, so take the pixel timing from
+// the Genesis there. `res` is locked per frame (below).
+assign hblank = res[0] ? S32X_HBLANK : GEN_HBLANK;
+assign ce_pix = res[0] ? S32X_DOT_CE : GEN_DOT_CE;
 `endif
 
-// Lock the resolution for the whole frame (as upstream S32X.sv)
-reg  [1:0] res;
-always @(posedge clk_sys) begin
-	reg old_vbl;
-	old_vbl <= vblank;
-	if (old_vbl & ~vblank) res <= gen_resolution;
-end
-assign resolution = res;
 
 ///////////////////////////////////////////////////
 // Framebuffer SRAM and 32X SDRAM port signals (driven by the 32X, or by memtest)

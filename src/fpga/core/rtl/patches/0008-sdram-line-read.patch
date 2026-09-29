@@ -9,17 +9,19 @@
  	output            busy0,
  	
  	input      [24:1] addr1,
-@@ -89,6 +91,9 @@
+@@ -89,6 +91,11 @@
  
  reg  [3:0] state;
  reg [22:1] a;
 +reg        line = 0;				// Pocket: current access is a port-0 line read
 +reg [15:0] line_buf[8];
 +reg        l_q = 0, ch_line = 0;
++reg        lr_act = 0;				// Pocket: issuing the 2nd..8th READ of a line read
++reg  [2:0] lr_col = 0;
  reg [15:0] data;
  reg        we;
  reg  [1:0] ba = 0;
-@@ -129,6 +134,7 @@
+@@ -129,6 +136,7 @@
  
  	mid_d <= mid;
  	if (mid) begin
@@ -27,7 +29,7 @@
  		rd_q <= rd;
  		wr_q <= wr;
  		a_q[0] <= addr0; d_q[0] <= din0; w_q[0] <= wr0;
-@@ -143,7 +149,7 @@
+@@ -143,7 +151,7 @@
  
  	if(rfs_timer) rfs_timer <= rfs_timer - 1'd1;
  	
@@ -36,7 +38,7 @@
  	if (mid_d && ((~old_rd[1] && rd_q[1]) || (~old_wr[1] && wr_q[1]))) begin ch_req[1] <= 1; ch_pend[1] <= 1; ch_addr[1] <= a_q[1]; ch_din[1] <= d_q[1]; ch_wr[1] <= w_q[1]; end
  	if (mid_d && ((~old_rd[2] && rd_q[2]) || (~old_wr[2] && wr_q[2]))) begin ch_req[2] <= 1; ch_pend[2] <= 1; ch_addr[2] <= a_q[2]; ch_din[2] <= d_q[2]; ch_wr[2] <= w_q[2]; end
  	if (mid_d && ((~old_rd[3] && rd_q[3]) || (~old_wr[3] && wr_q[3]))) begin ch_req[3] <= 1; ch_pend[3] <= 1; ch_addr[3] <= a_q[3]; ch_din[3] <= d_q[3]; ch_wr[3] <= w_q[3]; end
-@@ -154,6 +160,7 @@
+@@ -154,6 +162,7 @@
  			active <= 0;
  			we <= 0;
  			dqm <= 0;
@@ -44,7 +46,7 @@
  			state <= STATE_START;
  		end
  		else if (ch_pend[0]) begin
-@@ -163,6 +170,7 @@
+@@ -163,6 +172,7 @@
  			data <= ch_din[0];
  			we <= |ch_wr[0];
  			dqm <= ch_wr[0] ? ~ch_wr[0] : 2'b00;
@@ -52,7 +54,7 @@
  			active <= 1;
  			state <= STATE_START;
  			ch_pend[0] <= 0;
-@@ -175,6 +183,7 @@
+@@ -175,6 +185,7 @@
  			data <= ch_din[1];
  			we <= |ch_wr[1];
  			dqm <= ch_wr[1] ? ~ch_wr[1] : 2'b00;
@@ -60,7 +62,7 @@
  			active <= 1;
  			state <= STATE_START;
  			ch_pend[1] <= 0;
-@@ -187,6 +196,7 @@
+@@ -187,6 +198,7 @@
  			data <= ch_din[2];
  			we <= |ch_wr[2];
  			dqm <= ch_wr[2] ? ~ch_wr[2] : 2'b00;
@@ -68,7 +70,7 @@
  			active <= 1;
  			state <= STATE_START;
  			ch_pend[2] <= 0;
-@@ -199,6 +209,7 @@
+@@ -199,6 +211,7 @@
  			data <= ch_din[3];
  			we <= |ch_wr[3];
  			dqm <= ch_wr[3] ? ~ch_wr[3] : 2'b00;
@@ -76,7 +78,7 @@
  			active <= 1;
  			state <= STATE_START;
  			ch_pend[3] <= 0;
-@@ -207,20 +218,29 @@
+@@ -207,20 +220,29 @@
  	end
  
  	data_out <= 0;
@@ -109,13 +111,22 @@
  			2'd1: begin dout1 <= dout; ch_req[1] <= 0; end
  			2'd2: begin dout2 <= dout; ch_req[2] <= 0; end
  			2'd3: begin dout3 <= dout; ch_req[3] <= 0; end
-@@ -284,12 +304,18 @@
+@@ -284,12 +306,26 @@
  
  		                          default: {SDRAM_nRAS, SDRAM_nCAS, SDRAM_nWE} <= CMD_NOP;
  	endcase
-+	// Pocket: line read, one READ per clock on columns {a[22:17], 0..7}, auto-precharge on the last
-+	if(mode == MODE_NORMAL && active && !we && line && state > STATE_CONT && state <= STATE_CONT + 4'd7)
++	// Pocket: line read, one READ per clock on columns {a[22:17], 1..7} after the first (issued in
++	// STATE_CONT), auto-precharge on the last. Driven by lr_act/lr_col, not by state arithmetic, to
++	// keep the paths into the SDRAM pin registers short.
++	if(mode == MODE_NORMAL && state == STATE_CONT && active && !we && line) begin
++		lr_act <= 1;
++		lr_col <= 3'd1;
++	end
++	else if(lr_act) begin
 +		{SDRAM_nRAS, SDRAM_nCAS, SDRAM_nWE} <= CMD_READ;
++		lr_col <= lr_col + 3'd1;
++		if(lr_col == 3'd7) lr_act <= 0;
++	end
  
  	if(mode == MODE_NORMAL) begin
  		casex(state)
@@ -124,8 +135,7 @@
 +			STATE_CONT:  SDRAM_A <= line ? {dqm, 2'b00, a[22:17], 3'd0} : {dqm, 2'b10, a[22:14]};
  		endcase;
 +		// Pocket: the rest of a line read's columns
-+		if(line && state > STATE_CONT && state <= STATE_CONT + 4'd7)
-+			SDRAM_A <= {2'b00, state == STATE_CONT + 4'd7, 1'b0, a[22:17], 3'(state - STATE_CONT)};
++		if(lr_act) SDRAM_A <= {2'b00, lr_col == 3'd7, 1'b0, a[22:17], lr_col};
  	end
  	else if(mode == MODE_LDM && state == STATE_START) SDRAM_A <= MODE;
  	else if(mode == MODE_PRE && state == STATE_START) SDRAM_A <= 13'b0010000000000;
