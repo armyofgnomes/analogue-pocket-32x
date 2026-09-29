@@ -49,7 +49,9 @@ way the BSC does (bursts, 1- and 2-beat reads, 1- and 2-beat writes waiting in T
 traffic) with the real sdram.sv and chip model: about 72k read beats and 12k write beats per seed
 match a shadow memory on three seeds. The first version had no backpressure and lost writes when
 back-to-back write beats outran the queue; that is why writes now wait on a full queue.
-Full-system verification and the Pocket build are next. Performance note: a line miss costs 8
+Full-system check (Kolibri, `FAST_BIOS`): both SH-2s run the game at 127 ms (master 0x06000AEE,
+slave 0x06000516, then code in the cart), and all 335 full-width code reads the slave made from the
+32X SDRAM match the ROM. Pocket build 6486cf4. Performance note: a line miss costs 8
 single-word SDRAM reads (about 1.3 us); an sdram.sv burst mode would cut that a lot.
 
 The first build with this fix missed setup by 0.38 ns on SDRAM port 1 (68K bus arbiter through the
