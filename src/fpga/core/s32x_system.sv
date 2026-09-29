@@ -460,7 +460,48 @@ always @(posedge clk_sys) begin
 	end
 end
 // WAIT only during an SDRAM cycle, from the request until its completion.
-`ifdef SIM_MISTER_MEM
+`ifdef SIM_DDRAM_REF
+// Sim-only reference (+define+SIM_DDRAM_REF): the 32X SDRAM exactly as MiSTer's default build
+// serves it, through upstream ddram.sv (16-byte line cache, registered busy) in front of a simple
+// DDR3 model with a fixed read latency.
+wire        ddr_busy;
+wire [31:0] ddr_do;
+wire  [7:0] ddr_burstcnt, ddr_be;
+wire [28:0] ddr_addr;
+wire [63:0] ddr_din;
+wire        ddr_rd, ddr_we;
+reg  [63:0] ddr_dout;
+reg         ddr_dout_ready = 0;
+ddram ref_ddram
+(
+	.DDRAM_CLK(), .DDRAM_BUSY(1'b0), .DDRAM_BURSTCNT(ddr_burstcnt), .DDRAM_ADDR(ddr_addr),
+	.DDRAM_DOUT(ddr_dout), .DDRAM_DOUT_READY(ddr_dout_ready), .DDRAM_RD(ddr_rd), .DDRAM_DIN(ddr_din),
+	.DDRAM_BE(ddr_be), .DDRAM_WE(ddr_we),
+	.clk(clk_ram),
+	.mem_addr({10'b0000000000, S32X_SDR_A}), .mem_dout(ddr_do), .mem_din({16'h0000, S32X_SDR_DO}),
+	.mem_rd(S32X_SDR_CS & S32X_SDR_RD), .mem_wr({2'b00, {2{S32X_SDR_CS}} & S32X_SDR_WE}),
+	.mem_chan(2'd0), .mem_16b(1'b1), .mem_busy(ddr_busy)
+);
+reg [63:0] ddr_mem [0:32767];
+initial for (int i = 0; i < 32768; i++) ddr_mem[i] = 0;
+always @(posedge clk_ram) begin
+	static int rd_cnt = 0;
+	static reg [14:0] rd_a;
+	ddr_dout_ready <= 0;
+	if (ddr_we)
+		for (int b = 0; b < 8; b++) if (ddr_be[b]) ddr_mem[ddr_addr[14:0]][b*8 +: 8] <= ddr_din[b*8 +: 8];
+	if (ddr_rd) begin rd_cnt = 12; rd_a = ddr_addr[14:0]; end
+	else if (rd_cnt) begin
+		rd_cnt--;
+		if (rd_cnt == 1) begin ddr_dout <= ddr_mem[rd_a];      ddr_dout_ready <= 1; end
+		if (rd_cnt == 0) begin ddr_dout <= ddr_mem[rd_a + 1'd1]; ddr_dout_ready <= 1; end
+	end
+end
+assign s32x_sdr_di   = ddr_do[15:0];
+assign s32x_fb0_di   = FB0_DI;
+assign s32x_fb1_di   = FB1_DI;
+assign s32x_sdr_wait = ddr_busy;
+`elsif SIM_MISTER_MEM
 // Sim-only reference configuration (+define+SIM_MISTER_MEM): memories as in MiSTer, to compare
 // against. 32X SDRAM as an ideal zero-wait RAM; framebuffers as block RAM with a registered read
 // address (like MiSTer's spram), with USE_ASYNC_FB=0 above.

@@ -265,6 +265,11 @@ initial begin
 	void'($value$plusargs("win_start=%f", win_start));
 	void'($value$plusargs("win_end=%f", win_end));
 end
+// 68K accesses to the 32X registers (A15100-A151FF) inside the bus trace window
+always @(posedge clk_sys) if (win_start >= 0 && $realtime >= win_start && $realtime <= win_end &&
+                              !old_as && dut.GEN_AS_N && {dut.GEN_VA, 1'b0} >= 24'hA15100 && {dut.GEN_VA, 1'b0} < 24'hA15200)
+	$display("%t 68K %s A=%06h D=%04h", $realtime, (dut.GEN_LWR_N && dut.GEN_UWR_N) ? "RD" : "WR", {dut.GEN_VA, 1'b0},
+	         (dut.GEN_LWR_N && dut.GEN_UWR_N) ? dut.S32X_VDO : dut.GEN_VDO);
 reg old_mbs = 1, old_sbs = 1;
 always @(posedge clk_sys) if (win_start >= 0 && $realtime >= win_start && $realtime <= win_end) begin
 	old_mbs <= dut.S32X.SHBS_N;

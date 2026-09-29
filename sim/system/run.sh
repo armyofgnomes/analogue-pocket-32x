@@ -19,13 +19,15 @@ if [ "${SKIP_COMPILE:-0}" != 1 ]; then
     "$Q/vlib" work >/dev/null
     "$Q/vmap" altera_mf "$INTEL/vhdl/altera_mf" >/dev/null
     list=$(python3 "$repo/sim/system/gen_files.py")
+    # ddram.sv is only used by the SIM_DDRAM_REF reference (MiSTer's DDR3 path for the 32X SDRAM)
+    python3 "$repo/sim/common/hoist_decls.py" "$repo/src/fpga/core/rtl/S32X_MiSTer/rtl/ddram.sv" "$work/ddram_sim.sv"
     # VHDL in one call with -autoorder: Quartus accepts use-before-definition (e.g. bram.vhd,
     # T80_Pack listed last); Questa sorts the design units by dependency.
     vhd=$(echo "$list" | awk '$1=="vcom"{print "'"$repo"'/"$2}')
     "$Q/vcom" -quiet -2008 -autoorder $vhd
     vl=$(echo "$list" | awk '$1=="vlog"{print "'"$repo"'/"$2}')
     "$Q/vlog" -sv -quiet -suppress 2244,2388 ${VLOG_DEFS:-} -L altera_mf_ver $vl \
-        "$repo/sim/common/sdram_model.sv" "$repo/sim/system/tb_system.sv"
+        "$work/ddram_sim.sv" "$repo/sim/common/sdram_model.sv" "$repo/sim/system/tb_system.sv"
 fi
 # Init files: the BIOS ROMs use core/bios_mif/*.mif (relative to the Quartus project dir), fx68k
 # reads microrom.mem / nanorom.mem from the working directory.
