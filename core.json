@@ -4,7 +4,7 @@
         "metadata": {
             "platform_ids": ["32x"],
             "shortname": "32X",
-            "description": "Sega 32X (Genesis + 32X). Work in progress: Genesis games only (32X not yet).",
+            "description": "Sega 32X (Genesis + 32X). Work in progress: Genesis games run; 32X games boot but most don't play yet.",
             "author": "armyofgnomes",
             "url": "https://github.com/armyofgnomes/32x-core",
             "version": "0.1.0",
