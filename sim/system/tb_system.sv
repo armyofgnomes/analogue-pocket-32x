@@ -289,6 +289,22 @@ always @(posedge clk_ram) if (win_start >= 0 && $realtime >= win_start && $realt
 	$display("%t   sdr port0: rd=%b wr=%b A=%06h din=%04h busy=%b", $realtime, dut.s32x_sdr_rd, dut.s32x_sdr_wr,
 	         {dut.s32x_sdr_addr, 1'b0}, dut.s32x_sdr_din, dut.sdr_busy[0]);
 
+// Master SH-2 core fetch/bus trace every clock in [core_start, core_end] ns (+core_start/+core_end,
+// ACC=1): PC, fetched instruction, core bus request/address/data/WAIT, and the 32X bus arbitration.
+real core_start = -1, core_end = -1;
+initial begin
+	void'($value$plusargs("core_start=%f", core_start));
+	void'($value$plusargs("core_end=%f", core_end));
+end
+always @(posedge clk_sys) if (core_start >= 0 && $realtime >= core_start && $realtime <= core_end)
+	$display("%t CORE CE=%b PC=%08h IR=%04h IFST=%b | req=%b id=%b wr=%b A=%08h DI=%08h wait=%b | M: CS0123=%b%b%b%b RD=%b BREQ=%b BACK=%b WAIT_N=%b SDR_WAIT=%b | S: PC=%08h",
+	         $realtime, dut.S32X.MSH.core.CE, dut.S32X.MSH.core.PC, dut.S32X.MSH.core.PIPE.ID.IR,
+	         dut.S32X.MSH.core.IF_STALL,
+	         dut.S32X.MSH.core.BUS_REQ, dut.S32X.MSH.core.BUS_ID, dut.S32X.MSH.core.BUS_WR,
+	         dut.S32X.MSH.core.BUS_A, dut.S32X.MSH.core.BUS_DI, dut.S32X.MSH.core.BUS_WAIT,
+	         dut.S32X.SHCS0M_N, dut.S32X.SHCS1_N, dut.S32X.SHCS2_N, dut.S32X.SHCS3_N, dut.S32X.SHRD_N,
+	         dut.S32X.SHBREQ_N, dut.S32X.SHBACK_N, dut.S32X.SHWAIT_N, dut.s32x_sdr_wait, dut.S32X.SSH.core.PC);
+
 // Master SH-2 register-file writes every clock in [rf_start, rf_end] ns (+rf_start/+rf_end, ACC=1)
 real rf_start = -1, rf_end = -1;
 initial begin
@@ -317,6 +333,28 @@ always @(posedge clk_sys) if (trace) begin
 	old_adcr <= adcr;
 	if (!dut.S32X.SHCS0M_N) n_msh_cs0++;
 	if (!dut.S32X.SHCS0S_N) n_ssh_cs0++;
+end
+
+// Trace windows can be re-set at run time from trace_cfg.txt in the run directory (checked every
+// 100 us), so a checkpoint restored with RESTORE=1 can be probed without re-simulating:
+//   "<win_start> <win_end> <core_start> <core_end> [<rf_start> <rf_end>]" in ns (-1 = off)
+always begin
+	#(100us);
+	begin
+		int fd, n;
+		real a, b, c, d, e, f;
+		fd = $fopen("trace_cfg.txt", "r");
+		if (fd) begin
+			n = $fscanf(fd, "%f %f %f %f %f %f", a, b, c, d, e, f);
+			if (n >= 4) begin
+				win_start = a; win_end = b; core_start = c; core_end = d;
+			end
+			if (n == 6) begin
+				rf_start = e; rf_end = f;
+			end
+			$fclose(fd);
+		end
+	end
 end
 
 initial begin

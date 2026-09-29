@@ -57,6 +57,11 @@ FIXUPS = {
                  ('\twire  [5:0] LRU_WRADDR = CACHE_WR_ADDR[9:4];', '\tassign LRU_WRADDR = CACHE_WR_ADDR[9:4];'),
                  ('\twire        LRU_WE = ', '\tassign LRU_WE = '),
                  ('\tbit  [5:0] LRU_A_Q,LRU_B_Q;\n\tCACHE_LRU lru_a(', '\tCACHE_LRU lru_a(')],
+    # SH_core.sv has a bare `elsif (no macro name) before the non-DEBUG REGS_RAN assignment. Quartus
+    # treats it as `else; Questa takes the next token ('assign') as the macro name and drops the line,
+    # leaving the register file's read address A undriven (every Rn operand then reads the wrong
+    # register: the master SH-2 went off the rails in its BIOS at 56.8 ms).
+    'SH_core.sv': [('`elsif\n', '`else\n')],
     'vdp_mem.v': [('\t\t.q_b(q_b)\n\t);\n\nendmodule\n\nmodule vdp_obj_visinfo',
                    '\t\t.q_b(q_b[10:0])\n\t);\n\tassign q_b[21:11] = 11\'d0;\n\nendmodule\n\nmodule vdp_obj_visinfo')],
 }
