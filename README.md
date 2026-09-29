@@ -8,9 +8,10 @@ memories, clocks, video and the Analogue Pocket Framework (APF).
 **Status: work in progress, personal-use builds only.**
 
 - Genesis games run with video, audio and controls.
-- 32X games boot (the 32X BIOS runs and both SH-2 CPUs start), but most don't play yet: black
-  screens, corrupted 32X graphics or hangs. Fixing that is the current milestone (M4).
-- No save support, settings menu or PAL timing yet.
+- Most 32X games tested so far are playable: Doom, Kolibri, Knuckles' Chaotix, NBA Jam TE,
+  Pitfall, Primal Rage, Spider-Man: Web of Fire and Virtua Fighter (see
+  [`docs/test-log.md`](docs/test-log.md)). The current milestone (M5) is the rest of the library.
+- No save support (cartridge SRAM/EEPROM contents aren't kept), settings menu or PAL timing yet.
 
 Progress, requirements and hardware test results are tracked in [`docs/`](docs/):
 [`requirements.md`](docs/requirements.md) (milestones), [`test-log.md`](docs/test-log.md)

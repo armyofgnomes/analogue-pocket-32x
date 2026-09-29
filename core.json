@@ -4,11 +4,11 @@
         "metadata": {
             "platform_ids": ["32x"],
             "shortname": "32X",
-            "description": "Sega 32X (Genesis + 32X). Work in progress: Genesis games run; 32X games boot but most don't play yet.",
+            "description": "Sega 32X (Genesis + 32X). Work in progress: Genesis and most tested 32X games are playable. No saves yet.",
             "author": "armyofgnomes",
             "url": "https://github.com/armyofgnomes/32x-core",
-            "version": "0.1.0",
-            "date_release": "2026-09-28"
+            "version": "0.2.0",
+            "date_release": "2026-09-29"
         },
         "framework": {
             "target_product": "Analogue Pocket",

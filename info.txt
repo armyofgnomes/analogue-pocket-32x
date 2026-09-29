@@ -1,4 +1,5 @@
 Sega 32X core for Analogue Pocket (work in progress).
 
-Personal-use development build. Genesis games run; 32X games boot but most don't play yet.
+Personal-use development build. Genesis games and most tested 32X games are playable.
+No save support yet.
 https://github.com/armyofgnomes/32x-core
