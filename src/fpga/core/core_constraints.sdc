@@ -15,3 +15,7 @@ set_clock_groups -asynchronous \
           ic|mp1|altera_pll_i|general[1].gpll~PLL_OUTPUT_COUNTER|divclk \
           ic|mp1|altera_pll_i|general[2].gpll~PLL_OUTPUT_COUNTER|divclk \
           ic|mp1|altera_pll_i|general[3].gpll~PLL_OUTPUT_COUNTER|divclk }
+
+# From upstream S32X.sdc: SDRAM read data into the 32X interface is used a cycle later.
+set_multicycle_path -from {ic|system|sdram|*} -to {ic|system|S32X|s32x_if|*} -start -setup 2
+set_multicycle_path -from {ic|system|sdram|*} -to {ic|system|S32X|s32x_if|*} -start -hold 1

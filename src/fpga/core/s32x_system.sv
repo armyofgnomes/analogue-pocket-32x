@@ -1,13 +1,20 @@
 //
-// Console system: S32X_MiSTer's Genesis (gen) + cartridge mapper (CART) + SDRAM.
+// Console system: S32X_MiSTer's Genesis (gen) + 32X (S32X) + cartridge mapper (CART), with the
+// cart ROM, cart save RAM and 32X SDRAM in SDRAM (sdram.sv) and the 32X framebuffers in the async
+// SRAM (fb_sram.sv). Wiring follows upstream S32X.sv with s32x_rom = 1: like a real 32X, every
+// cart (32X or plain Genesis) goes through the 32X, which passes Genesis carts through.
 //
-// M2 (Genesis on Pocket): the 32X block is not instantiated yet, so the cart is wired straight
-// to the Genesis bus (upstream S32X.sv's s32x_rom = 0 path). Wiring follows upstream S32X.sv.
+// MEMTEST builds (tools/build.sh --memtest) leave the 32X out (GENESIS_ONLY) and let memtest.sv
+// drive the framebuffer SRAM and the 32X SDRAM port instead.
 //
 // Clock domains: everything here runs on clk_sys (MCLK) except the SDRAM controller, which runs
 // on clk_ram (2x MCLK, same PLL) and samples its request inputs from the clk_sys domain, exactly
 // as in upstream.
 //
+
+`ifdef MEMTEST
+`define GENESIS_ONLY
+`endif
 
 module s32x_system
 (
@@ -136,6 +143,8 @@ wire        GEN_MEM_BUSY;
 
 wire  [3:0] GEN_R, GEN_G, GEN_B;
 wire  [1:0] gen_resolution;
+wire        GEN_YS_N, GEN_EDCLK, GEN_HBLANK, GEN_DOT_CE;
+wire [15:0] S32X_SL, S32X_SR;
 wire        sys_reset = reset | rom_loading;
 
 wire [15:0] CART_VDO;
@@ -184,14 +193,14 @@ gen gen
 	.RED(GEN_R),
 	.GREEN(GEN_G),
 	.BLUE(GEN_B),
-	.YS_N(),
-	.EDCLK(),
+	.YS_N(GEN_YS_N),
+	.EDCLK(GEN_EDCLK),
 	.VS(vs_n),
 	.HS(hs_n),
-	.HBL(hblank),
+	.HBL(GEN_HBLANK),
 	.VBL(vblank),
 	.BORDER(1'b0),
-	.DOT_CE(ce_pix),
+	.DOT_CE(GEN_DOT_CE),
 	.FIELD(field),
 	.INTERLACE(interlace),
 	.RESOLUTION(gen_resolution),
@@ -221,14 +230,18 @@ gen gen
 
 	.EN_GEN_FM(1'b1),
 	.EN_GEN_PSG(1'b1),
+`ifdef GENESIS_ONLY
 	.EN_32X_PWM(1'b0),
+`else
+	.EN_32X_PWM(1'b1),
+`endif
 	.EN_HIFI_PCM(1'b0),
 	.LADDER(1'b1),
 	.LPF_MODE(2'b00),
 	.FMBUSY_QUIRK(1'b0),
 
-	.EXT_SL(16'd0),
-	.EXT_SR(16'd0),
+	.EXT_SL(S32X_SL),
+	.EXT_SR(S32X_SR),
 
 	.DAC_LDATA(audio_l),
 	.DAC_RDATA(audio_r),
@@ -263,9 +276,25 @@ wire [7:0] color_lut[16] = '{
 	8'd146, 8'd157, 8'd174, 8'd190,
 	8'd206, 8'd228, 8'd255, 8'd255
 };
+wire  [4:0] S32X_R, S32X_G, S32X_B;
+wire        S32X_YSO_N, S32X_HBLANK, S32X_DOT_CE;
+
+`ifdef GENESIS_ONLY
 assign r = color_lut[GEN_R];
 assign g = color_lut[GEN_G];
 assign b = color_lut[GEN_B];
+assign hblank = GEN_HBLANK;
+assign ce_pix = GEN_DOT_CE;
+`else
+// Genesis and 32X layers mixed per pixel by the 32X priority output (YSO_N), as upstream
+// S32X.sv does with both layers enabled. Timing comes from the 32X VDP, which follows the
+// Genesis VDP's dot clock.
+assign r = !S32X_YSO_N ? {S32X_R, S32X_R[4:2]} : color_lut[GEN_R];
+assign g = !S32X_YSO_N ? {S32X_G, S32X_G[4:2]} : color_lut[GEN_G];
+assign b = !S32X_YSO_N ? {S32X_B, S32X_B[4:2]} : color_lut[GEN_B];
+assign hblank = S32X_HBLANK;
+assign ce_pix = S32X_DOT_CE;
+`endif
 
 // Lock the resolution for the whole frame (as upstream S32X.sv)
 reg  [1:0] res;
@@ -277,10 +306,135 @@ end
 assign resolution = res;
 
 ///////////////////////////////////////////////////
-// Cartridge
+// Framebuffer SRAM and 32X SDRAM port signals (driven by the 32X, or by memtest)
 
-assign GEN_VDI = CART_VDO;
+wire [15:0] FB0_A, FB0_DO, FB0_DI, FB1_A, FB1_DO, FB1_DI;
+wire  [1:0] FB0_WE, FB1_WE;
+wire        FB0_RD, FB1_RD, FB_FS;
+wire  [3:0] fb_cfg_rd, fb_cfg_we;
+wire        fb_cfg_half;
+
+wire [24:1] s32x_sdr_addr;
+wire        s32x_sdr_rd;
+wire  [1:0] s32x_sdr_wr;
+wire [15:0] s32x_sdr_din;
+
+// Cart bus: from the Genesis directly (GENESIS_ONLY) or from the 32X's cart side.
+wire [23:1] C_VA;
+wire [15:0] C_VDI;
+wire        C_LWR_N, C_UWR_N, C_CE0_N, C_CAS0_N, C_CAS2_N, C_ASEL_N;
+
+`ifdef GENESIS_ONLY
+assign GEN_VDI     = CART_VDO;
 assign GEN_DTACK_N = CART_DTACK_N;
+assign {C_VA, C_VDI, C_LWR_N, C_UWR_N, C_CE0_N, C_CAS0_N, C_CAS2_N, C_ASEL_N} =
+       {GEN_VA, GEN_VDO, GEN_LWR_N, GEN_UWR_N, GEN_CE0_N, GEN_CAS0_N, GEN_CAS2_N, GEN_ASEL_N};
+assign {S32X_SL, S32X_SR} = '0;
+assign {S32X_R, S32X_G, S32X_B, S32X_YSO_N, S32X_HBLANK, S32X_DOT_CE} = '0;
+`else
+///////////////////////////////////////////////////
+// 32X
+
+wire [15:0] S32X_VDO;
+wire        S32X_DTACK_N;
+wire [23:1] S32X_CA;
+wire [15:0] S32X_CDO;
+wire        S32X_CASEL_N, S32X_CLWR_N, S32X_CUWR_N, S32X_CCE0_N, S32X_CCAS0_N, S32X_CCAS2_N;
+wire [17:1] S32X_SDR_A;
+wire [15:0] S32X_SDR_DO;
+wire        S32X_SDR_CS, S32X_SDR_RD;
+wire  [1:0] S32X_SDR_WE;
+
+assign GEN_VDI     = S32X_VDO;
+assign GEN_DTACK_N = S32X_DTACK_N & CART_DTACK_N;
+assign {C_VA, C_VDI, C_LWR_N, C_UWR_N, C_CE0_N, C_CAS0_N, C_CAS2_N, C_ASEL_N} =
+       {S32X_CA, S32X_CDO, S32X_CLWR_N, S32X_CUWR_N, S32X_CCE0_N, S32X_CCAS0_N, S32X_CCAS2_N, S32X_CASEL_N};
+
+S32X #(
+	.USE_ROM_WAIT(1),
+	.USE_ASYNC_FB(1)        // framebuffers in external SRAM (fb_sram.sv relies on this mode)
+) S32X
+(
+	.RST_N(~sys_reset),
+	.CLK(clk_sys),
+
+	.VCLK(GEN_VCLK_CE),
+	.VA(GEN_VA),
+	.VDI(GEN_VDO),
+	.VDO(S32X_VDO),
+	.AS_N(GEN_AS_N),
+	.DTACK_N(S32X_DTACK_N),
+	.LWR_N(GEN_LWR_N),
+	.UWR_N(GEN_UWR_N),
+	.CE0_N(GEN_CE0_N),
+	.CAS0_N(GEN_CAS0_N),
+	.CAS2_N(GEN_CAS2_N),
+	.ASEL_N(GEN_ASEL_N),
+	.VRES_N(1'b1),
+	.MRES_N(1'b1),
+	.CART_N(1'b0),
+
+	.VSYNC_N(vs_n),
+	.HSYNC_N(hs_n),
+	.EDCLK(GEN_EDCLK),
+	.YS_N(GEN_YS_N),
+	.PAL(pal_r),
+
+	.CA(S32X_CA),
+	.CDI(CART_VDO),
+	.CDO(S32X_CDO),
+	.CASEL_N(S32X_CASEL_N),
+	.CLWR_N(S32X_CLWR_N),
+	.CUWR_N(S32X_CUWR_N),
+	.CCE0_N(S32X_CCE0_N),
+	.CCAS0_N(S32X_CCAS0_N),
+	.CCAS2_N(S32X_CCAS2_N),
+	.ROM_WAIT(CART_SRAM_RD || CART_SRAM_WR ? sdr_busy[2] : sdr_busy[1]),
+
+	.SDR_A(S32X_SDR_A),
+	.SDR_DI(sdr_do[0]),
+	.SDR_DO(S32X_SDR_DO),
+	.SDR_CS(S32X_SDR_CS),
+	.SDR_WE(S32X_SDR_WE),
+	.SDR_RD(S32X_SDR_RD),
+	.SDR_WAIT(sdr_busy[0]),
+
+	.FB0_A(FB0_A),
+	.FB0_DI(FB0_DI),
+	.FB0_DO(FB0_DO),
+	.FB0_WE(FB0_WE),
+	.FB0_RD(FB0_RD),
+	.FB1_A(FB1_A),
+	.FB1_DI(FB1_DI),
+	.FB1_DO(FB1_DO),
+	.FB1_WE(FB1_WE),
+	.FB1_RD(FB1_RD),
+	.FB_FS(FB_FS),
+
+	.DOT_CE(S32X_DOT_CE),
+	.R(S32X_R),
+	.G(S32X_G),
+	.B(S32X_B),
+	.HS_N(),
+	.VS_N(),
+	.YSO_N(S32X_YSO_N),
+	.HBL(S32X_HBLANK),
+
+	.PWM_L(S32X_SL),
+	.PWM_R(S32X_SR),
+
+	.DBG_CA()
+);
+
+// 32X SDRAM (256 KB) on sdram.sv port 0 at 0x1000000, as upstream's use_sdr path.
+assign s32x_sdr_addr = {7'b1000000, S32X_SDR_A};
+assign s32x_sdr_rd   = S32X_SDR_CS & S32X_SDR_RD;
+assign s32x_sdr_wr   = S32X_SDR_WE & {2{S32X_SDR_CS}};
+assign s32x_sdr_din  = S32X_SDR_DO;
+`endif
+
+///////////////////////////////////////////////////
+// Cartridge
 
 CART cart
 (
@@ -288,17 +442,17 @@ CART cart
 	.RST_N(~sys_reset),
 
 	.VCLK(GEN_VCLK_CE),
-	.VA(GEN_VA),
-	.VDI(GEN_VDO),
+	.VA(C_VA),
+	.VDI(C_VDI),
 	.VDO(CART_VDO),
 	.AS_N(GEN_AS_N),
 	.DTACK_N(CART_DTACK_N),
-	.LWR_N(GEN_LWR_N),
-	.UWR_N(GEN_UWR_N),
-	.CE0_N(GEN_CE0_N),
-	.CAS0_N(GEN_CAS0_N),
-	.CAS2_N(GEN_CAS2_N),
-	.ASEL_N(GEN_ASEL_N),
+	.LWR_N(C_LWR_N),
+	.UWR_N(C_UWR_N),
+	.CE0_N(C_CE0_N),
+	.CAS0_N(C_CAS0_N),
+	.CAS2_N(C_CAS2_N),
+	.ASEL_N(C_ASEL_N),
 	.TIME_N(GEN_TIME_N),
 
 	.ROM_A(CART_ROM_A),
@@ -315,7 +469,11 @@ CART cart
 	.SRAM_WR(CART_SRAM_WR),
 
 	.rom_sz(rom_sz),
+`ifdef GENESIS_ONLY
 	.s32x(1'b0),
+`else
+	.s32x(1'b1),
+`endif
 	.eeprom_map(4'd0),
 	.noram_quirk(1'b0),
 	.realtec_map(1'b0),
@@ -323,14 +481,7 @@ CART cart
 );
 
 ///////////////////////////////////////////////////
-// 32X framebuffers in SRAM (fb_sram.sv). Until the 32X block is instantiated (M4), only the
-// MEMTEST build drives them.
-
-wire [15:0] FB0_A, FB0_DO, FB0_DI, FB1_A, FB1_DO, FB1_DI;
-wire  [1:0] FB0_WE, FB1_WE;
-wire        FB0_RD, FB1_RD, FB_FS;
-wire  [3:0] fb_cfg_rd, fb_cfg_we;
-wire        fb_cfg_half;
+// 32X framebuffers in SRAM (fb_sram.sv)
 
 reg  [1:0] ram_reset_sync;
 always @(posedge clk_ram) ram_reset_sync <= {ram_reset_sync[0], ~pll_locked};
@@ -347,12 +498,6 @@ fb_sram fb_sram
 	.sram_ub_n(SRAM_UB_N), .sram_lb_n(SRAM_LB_N)
 );
 
-// 32X SDRAM port (sdram.sv port 0)
-wire [24:1] s32x_sdr_addr;
-wire        s32x_sdr_rd;
-wire  [1:0] s32x_sdr_wr;
-wire [15:0] s32x_sdr_din;
-
 `ifdef MEMTEST
 memtest memtest
 (
@@ -368,20 +513,17 @@ memtest memtest
 	.sdram_passes(memtest_status[34:19]), .sdram_fail(memtest_status[35])
 );
 `else
-assign {FB0_A, FB0_DO, FB0_WE, FB0_RD, FB1_A, FB1_DO, FB1_WE, FB1_RD} = '0;
-assign FB_FS = 1'b0;
 // Production SRAM timing, from the hardware sweep: reads need more than 28 ns, 37 ns works.
 assign fb_cfg_rd   = 4'd4;    // 37 ns read capture
 assign fb_cfg_we   = 4'd2;    // 19 ns WE pulse
 assign fb_cfg_half = 1'b0;
-assign {s32x_sdr_addr, s32x_sdr_rd, s32x_sdr_wr, s32x_sdr_din} = '0;
 assign memtest_status = '0;
 `endif
 
 ///////////////////////////////////////////////////
 // SDRAM (upstream sdram.sv, Pocket timing patch). Byte addresses, 32 MB usable:
 //   0x0000000-0x0FFFFFF  cart ROM (port 1 reads, port 3 loader writes)
-//   0x1000000-0x103FFFF  reserved: 32X SDRAM (port 0, M3)
+//   0x1000000-0x103FFFF  32X SDRAM (port 0)
 //   0x1800000-0x180FFFF  cart save RAM (port 2)
 
 sdram sdram

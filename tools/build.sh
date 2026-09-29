@@ -8,16 +8,17 @@ set -euo pipefail
 repo=$(cd "$(dirname "$0")/.." && pwd)
 QUARTUS_BIN=${QUARTUS_BIN:-$HOME/altera_lite/25.1std/quartus/bin}
 macros=()
+bios_opt=""
 for arg in "$@"; do
     case $arg in
-        --memtest) macros+=(--verilog_macro=MEMTEST=1) ;;
+        --memtest) macros+=(--verilog_macro=MEMTEST=1); bios_opt=--optional ;;   # no 32X, no BIOS needed
         *) echo "unknown option $arg" >&2; exit 2 ;;
     esac
 done
 
 cd "$repo/src/fpga"
 "$repo/tools/prepare_upstream.sh"
-python3 "$repo/tools/gen_bios_mif.py" --optional
+python3 "$repo/tools/gen_bios_mif.py" $bios_opt
 "$QUARTUS_BIN/quartus_sh" -t apf/build_id_gen.tcl >/dev/null
 "$QUARTUS_BIN/quartus_map" ap_core ${macros[@]+"${macros[@]}"}
 "$QUARTUS_BIN/quartus_fit" ap_core
