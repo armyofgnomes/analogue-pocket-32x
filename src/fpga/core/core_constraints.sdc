@@ -19,3 +19,11 @@ set_clock_groups -asynchronous \
 # From upstream S32X.sdc: SDRAM read data into the 32X interface is used a cycle later.
 set_multicycle_path -from {ic|system|sdram|*} -to {ic|system|S32X|s32x_if|*} -start -setup 2
 set_multicycle_path -from {ic|system|sdram|*} -to {ic|system|S32X|s32x_if|*} -start -hold 1
+
+# fb_sram samples its clk_sys-domain requests only on the clk_ram edge in the middle of the
+# clk_sys cycle (it detects that edge itself, see fb_sram.sv). The clk_ram edge that coincides
+# with the launching clk_sys edge never loads these registers, so the hold check moves one
+# clk_ram cycle earlier. Setup keeps the default (capture at the mid edge, half a clk_sys cycle).
+set fb_sram_req_regs {ic|system|fb_sram|ch_* ic|system|fb_sram|fs_r ic|system|fb_sram|wr_pend* ic|system|fb_sram|rd_pend*}
+set_multicycle_path -from [get_clocks {ic|mp1|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk}] \
+ -to $fb_sram_req_regs -end -hold 1

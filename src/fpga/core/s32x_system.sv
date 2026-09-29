@@ -548,13 +548,17 @@ CART cart
 reg  [1:0] ram_reset_sync;
 always @(posedge clk_ram) ram_reset_sync <= {ram_reset_sync[0], ~pll_locked};
 
+// Toggles every clk_sys cycle: fb_sram uses it to find the clk_ram edge in mid clk_sys cycle
+reg fb_sys_tog = 0;
+always @(posedge clk_sys) fb_sys_tog <= ~fb_sys_tog;
+
 fb_sram fb_sram
 (
 	.clk_ram(clk_ram),
 	.reset(ram_reset_sync[1]),
 	.FB0_A(FB0_A), .FB0_DO(FB0_DO), .FB0_WE(FB0_WE), .FB0_RD(FB0_RD), .FB0_DI(FB0_DI),
 	.FB1_A(FB1_A), .FB1_DO(FB1_DO), .FB1_WE(FB1_WE), .FB1_RD(FB1_RD), .FB1_DI(FB1_DI),
-	.FB_FS(FB_FS),
+	.FB_FS(FB_FS), .sys_tog(fb_sys_tog),
 	.cfg_rd(fb_cfg_rd), .cfg_we(fb_cfg_we), .cfg_half(fb_cfg_half),
 	.sram_a(SRAM_A), .sram_dq(SRAM_DQ), .sram_oe_n(SRAM_OE_N), .sram_we_n(SRAM_WE_N),
 	.sram_ub_n(SRAM_UB_N), .sram_lb_n(SRAM_LB_N)

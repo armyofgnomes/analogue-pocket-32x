@@ -45,11 +45,14 @@ wire [16:0] sram_a;
 wire [15:0] sram_dq;
 wire        sram_oe_n, sram_we_n, sram_ub_n, sram_lb_n;
 
+reg sys_tog = 0;   // fb_sram mid-edge reference: toggles every clk_sys cycle
+always @(posedge clk_sys) sys_tog <= ~sys_tog;
+
 fb_sram dut (
 	.clk_ram(clk_ram), .reset(reset),
 	.FB0_A(FB_A[0]), .FB0_DO(FB_DO[0]), .FB0_WE(FB_WE[0]), .FB0_RD(FB_RD[0]), .FB0_DI(FB0_DI),
 	.FB1_A(FB_A[1]), .FB1_DO(FB_DO[1]), .FB1_WE(FB_WE[1]), .FB1_RD(FB_RD[1]), .FB1_DI(FB1_DI),
-	.FB_FS(fs_q), .cfg_rd(4'(`CFG_RD)), .cfg_we(4'(`CFG_WE)), .cfg_half(1'b0),
+	.FB_FS(fs_q), .sys_tog(sys_tog), .cfg_rd(4'(`CFG_RD)), .cfg_we(4'(`CFG_WE)), .cfg_half(1'b0),
 	.sram_a(sram_a), .sram_dq(sram_dq), .sram_oe_n(sram_oe_n), .sram_we_n(sram_we_n),
 	.sram_ub_n(sram_ub_n), .sram_lb_n(sram_lb_n)
 );

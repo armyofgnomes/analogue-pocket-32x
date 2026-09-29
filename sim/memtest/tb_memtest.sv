@@ -47,11 +47,14 @@ memtest #(.AW(8)) mt (
 	.sdram_passes(sdram_passes), .sdram_fail(sdram_fail)
 );
 
+reg sys_tog = 0;   // fb_sram mid-edge reference: toggles every clk_sys cycle
+always @(posedge clk_sys) sys_tog <= ~sys_tog;
+
 fb_sram fb (
 	.clk_ram(clk_ram), .reset(reset),
 	.FB0_A(FB0_A), .FB0_DO(FB0_DO), .FB0_WE(FB0_WE), .FB0_RD(FB0_RD), .FB0_DI(FB0_DI),
 	.FB1_A(FB1_A), .FB1_DO(FB1_DO), .FB1_WE(FB1_WE), .FB1_RD(FB1_RD), .FB1_DI(FB1_DI),
-	.FB_FS(FB_FS), .cfg_rd(cfg_rd), .cfg_we(cfg_we), .cfg_half(cfg_half),
+	.FB_FS(FB_FS), .sys_tog(sys_tog), .cfg_rd(cfg_rd), .cfg_we(cfg_we), .cfg_half(cfg_half),
 	.sram_a(sram_a), .sram_dq(sram_dq), .sram_oe_n(sram_oe_n), .sram_we_n(sram_we_n),
 	.sram_ub_n(sram_ub_n), .sram_lb_n(sram_lb_n)
 );

@@ -9,10 +9,13 @@
 //   - draw buffer: FIFO writes hold A/D/WE for 6 MCLK, SH-2 reads hold RD and sample after
 //     6 MCLK, auto-fill holds WE for the whole ~7 MCLK step
 //
-// The state machine runs on clk_ram (2x clk_sys, same PLL). Each clk_ram edge registers the
-// VDP's requests and, comparing the incoming values against the registered ones, sets a one-bit
-// pending flag per channel and operation for anything new. The arbiter only looks at the flags
-// (short paths at 107 MHz).
+// The state machine runs on clk_ram (2x clk_sys, same PLL). The VDP's requests change only on
+// clk_sys edges, so of each pair of clk_ram edges only the one in the middle of the clk_sys cycle
+// ("mid" edge) sees new values; the other coincides with the clk_sys edge and would only
+// re-sample the same values under a zero-margin hold check. Requests are therefore sampled on mid
+// edges only (core_constraints.sdc relaxes the hold check to match). On a mid edge the incoming
+// values are compared against the registered ones and set a one-bit pending flag per channel and
+// operation for anything new. The arbiter only looks at the flags (short paths at 107 MHz).
 // One SRAM access at a time. With the production timing (cfg_rd = 4, cfg_we = 2, from the
 // hardware sweep: the Pocket's SRAM needs more than 28 ns for reads, 37 ns works):
 //   read  = address, capture cfg_rd cycles later in the I/O-cell register; the next access can
@@ -44,6 +47,7 @@ module fb_sram
 	input             FB1_RD,
 	output reg [15:0] FB1_DI,
 	input             FB_FS,          // 1: FB0 is the draw buffer, FB1 is displayed
+	input             sys_tog,        // clk_sys-domain register that toggles every clk_sys cycle
 
 	// Access timing in clk_ram cycles (9.3 ns). Normal builds: cfg_rd = 3, cfg_we = 2, as
 	// analysed above. The MEMTEST sweep varies them to find what the Pocket's SRAM needs.
@@ -76,16 +80,24 @@ reg  [1:0] ch_we[2];
 reg        ch_rd[2];
 reg        fs_r;
 
+// Mid-edge detection: sys_tog sampled on the falling clk_ram edges (a quarter clk_sys cycle
+// after each clk_sys edge, and a quarter before the next: 4.65 ns margin both ways) has changed
+// since the previous rising edge exactly on the mid edges.
+reg tog_n, tog_p;
+always @(negedge clk_ram) tog_n <= sys_tog;
+always @(posedge clk_ram) tog_p <= tog_n;
+wire mid = tog_n ^ tog_p;
+
 wire wr_evt[2], rd_evt[2];
 genvar c;
 generate for (c = 0; c < 2; c++) begin : evt
-	assign wr_evt[c] = (in_we[c] != 2'b00) &&
+	assign wr_evt[c] = mid && (in_we[c] != 2'b00) &&
 	                   (ch_we[c] == 2'b00 || in_we[c] != ch_we[c] || in_a[c] != ch_a[c] || in_d[c] != ch_d[c]);
-	assign rd_evt[c] = in_rd[c] && (in_we[c] == 2'b00) &&
+	assign rd_evt[c] = mid && in_rd[c] && (in_we[c] == 2'b00) &&
 	                   (!ch_rd[c] || ch_we[c] != 2'b00 || in_a[c] != ch_a[c]);
 end endgenerate
 
-always @(posedge clk_ram) begin
+always @(posedge clk_ram) if (mid) begin
 	for (int i = 0; i < 2; i++) begin
 		ch_a[i] <= in_a[i]; ch_d[i] <= in_d[i]; ch_we[i] <= in_we[i]; ch_rd[i] <= in_rd[i];
 	end
@@ -167,8 +179,8 @@ always @(posedge clk_ram) begin
 		for (int i = 0; i < 2; i++) begin
 			if (wr_evt[i]) wr_pend[i] <= 1;
 			if (rd_evt[i]) rd_pend[i] <= 1;
-			if (in_we[i] == 2'b00) wr_pend[i] <= 0;
-			if (!in_rd[i] || in_we[i] != 2'b00) rd_pend[i] <= 0;
+			if (mid && in_we[i] == 2'b00) wr_pend[i] <= 0;
+			if (mid && (!in_rd[i] || in_we[i] != 2'b00)) rd_pend[i] <= 0;
 		end
 
 		// Finishing or abandoning a read
@@ -178,7 +190,7 @@ always @(posedge clk_ram) begin
 			xfer_half <= cfg_half;
 			rd_half   <= rd_qn;                   // sampled half a cycle before this edge
 		end
-		if (rd_abort && !rd_evt[op_ch] && in_rd[op_ch] && in_we[op_ch] == 2'b00)
+		if (rd_abort && !rd_evt[op_ch] && ch_rd[op_ch] && ch_we[op_ch] == 2'b00)
 			rd_pend[op_ch] <= 1;                  // re-issue the abandoned display read later
 
 		if (state == ST_RD && !rd_done && !rd_abort) cnt <= cnt - 1'd1;
@@ -227,7 +239,7 @@ always @(posedge clk_ram) begin
 				else begin
 					sram_we_n <= 1;
 					// A channel that reads what it just wrote must re-read.
-					if (in_rd[op_ch] && in_we[op_ch] == 2'b00) rd_pend[op_ch] <= 1;
+					if (ch_rd[op_ch] && ch_we[op_ch] == 2'b00) rd_pend[op_ch] <= 1;
 					state <= ST_IDLE;
 				end
 			end
