@@ -38,12 +38,26 @@ if [ "${FAST_BIOS:-0}" = 1 ]; then
     # time. Branch from its start (0x1C0) to the success path (0x20C, which still clears SDRAM).
     mkdir -p core/bios_mif
     cp "$repo"/src/fpga/core/bios_mif/*.mif core/bios_mif/
-    python3 - core/bios_mif/shbios.mif <<'PY'
-import re, sys
-p = sys.argv[1]
+    # It also replaces the cartridge checksum loop (0x264-0x282, one word at a time over the whole
+    # ROM: ~850 ms for 3 MB) by loading the sum computed here from the ROM file.
+    rom=""
+    for a in "$@"; do case $a in +rom=*) rom=${a#+rom=} ;; esac; done
+    python3 - core/bios_mif/shbios.mif "$rom" <<'PY'
+import re, struct, sys
+p, rom = sys.argv[1], sys.argv[2]
 t = open(p).read()
-for addr, val in ((0x0E0, 'A024'), (0x0E1, '0009')):   # word 0xE0 = byte 0x1C0: bra 0x20C; nop
-    t, n = re.subn(r'(?m)^(\s*)%04X(\s*:\s*)[0-9A-Fa-f]+;' % addr, r'\g<1>%04X\g<2>%s;' % (addr, val), t)
+patch = [(0x0E0, 0xA024), (0x0E1, 0x0009)]            # byte 0x1C0: bra 0x20C; nop
+if rom:
+    d = open(rom, 'rb').read()
+    end = struct.unpack('>I', d[0x1A4:0x1A8])[0]       # header: ROM end address
+    count = (((end - 0x200) >> 1) & 0x3FFFFF) + 1      # as the BIOS computes it
+    words = struct.unpack('>%dH' % count, d[0x200:0x200 + 2 * count].ljust(2 * count, b'\0'))
+    csum = sum(words) & 0xFFFF
+    # byte 0x264: mov.w @(0x26C),r0; 0x266: bra 0x284; 0x268/0x26A: nop; 0x26C: the sum
+    patch += [(0x132, 0x9002), (0x133, 0xA00D), (0x134, 0x0009), (0x135, 0x0009), (0x136, csum)]
+    print(f"FAST_BIOS: cart checksum {csum:04X} over {count} words")
+for addr, val in patch:
+    t, n = re.subn(r'(?m)^(\s*)%04X(\s*:\s*)[0-9A-Fa-f]+;' % addr, r'\g<1>%04X\g<2>%04X;' % (addr, val), t)
     assert n == 1, hex(addr)
 open(p, 'w').write(t)
 PY
