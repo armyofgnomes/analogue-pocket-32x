@@ -72,7 +72,7 @@ Update the status column in the same commit that completes a requirement.
 | REQ-APF-05 | P0 | Replace template `icon.bin` and `info.txt` with project-specific content | HW | TODO |
 | REQ-APF-06 | P1 | `interact.json` settings: region (auto/US/EU/JP), 6-button pad toggle, audio options (FM chip variant, lowpass), video options (border, composite blending), reset. Values wired through the bridge | HW | TODO |
 | REQ-APF-07 | P1 | Optional Genesis TMSS BIOS slot (off by default) | HW | TODO |
-| REQ-APF-08 | P2 | Sleep/wake and save states (`sleep_supported`). Large state: 256 KB SDRAM + 256 KB framebuffer + Genesis state | HW | TODO |
+| REQ-APF-08 | P2 | Sleep/wake and save states (`sleep_supported`, Pocket "Memories"). Large state: 256 KB SDRAM + 256 KB framebuffer + Genesis state, and every internal register of both CPUs, both VDPs and the SH-2 peripherals (upstream has no save-state support). **Optional research item, last:** owner's priority order (2026-09-29) is M5, then saves (REQ-SAVE-01/02), then the remaining requirements | HW | TODO |
 
 ## 5. Clocking and reset (CLK)
 
