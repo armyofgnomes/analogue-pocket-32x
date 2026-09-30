@@ -1,0 +1,6 @@
+# Golden results for sim/regress.sh (REQ-QA-05). Update only after confirming a change is intended.
+padtest_6btn_x   ff0000         # backdrop color: 6-button pad detected, X held -> red
+padtest_6btn_yz  00ffff         # Y+Z held -> green+blue
+padtest_3btn     777777         # 3-button mode -> gray (no 6-button pad)
+kolibri_68k      e8640b57       # BIOS read signature, first 20000 68K BIOS reads (FAST_BIOS)
+kolibri_sh2      b997c9ec       # first 20000 SH-2 BIOS reads

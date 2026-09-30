@@ -326,6 +326,11 @@ Clock-domain crossings:
 - `clk_sys` → `clk_vid` (MCLK/2, same PLL): pixels latched in clk_sys and flagged with a
   toggle; ordinary synchronous paths.
 
+Pins (REQ-CLK-03): SDRAM, SRAM, APF bridge, video and audio pins are timed by design and declared
+as explicit exceptions in `core_constraints.sdc` (reasons there); the build checks that every
+SDRAM/SRAM pin register is in its I/O cell (`tools/check_io_regs.py`). The timing report has no
+unconstrained paths.
+
 ### Toolchain
 
 - **Quartus Prime Lite 25.1std.0 Build 1129** (Linux), with Cyclone V device support only.

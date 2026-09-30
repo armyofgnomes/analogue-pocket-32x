@@ -41,3 +41,26 @@ set_multicycle_path -from [get_clocks {ic|mp1|pll|altera_pll_i|cyclonev_pll|coun
 # hold check (launch and capture on coincident edges) can't happen; setup is still checked.
 set_false_path -hold -from [get_registers {*|sdram:sdram|dout0_line[*]}] \
                      -to   [get_registers {*|s32x_sdram_front:s32x_sdram_front|lb_data[*][*]}]
+
+# --- Pin timing (REQ-CLK-03) ---------------------------------------------------------------------
+# These ports are timed by design rather than by input/output delay constraints, which would need
+# the external chips' and the board's timing (not available). Declared explicitly so the timing
+# report has no unconstrained paths, with the reason for each group:
+# - SDRAM and framebuffer SRAM: every pin register sits in its I/O cell (FAST_*_REGISTER in the
+#   QSF, enforced by tools/check_io_regs.py in tools/build.sh), so clock-to-pin delays are fixed.
+#   The SDRAM clock runs at 180 degrees (sdram.sv's DDIO output) with command-to-capture cycles
+#   as openFPGA-Genesis uses on the same Pocket SDRAM; the SRAM access lengths (37 ns read,
+#   19 ns write) have margin measured on hardware by the memtest sweeps (docs/architecture.md §4).
+# - APF bridge: Analogue's SPI link to the host, sampled by the framework's own logic
+#   (apf/io_bridge_peripheral.v); Analogue's constraints don't time these pins either.
+# - Video to the scaler: data launched on clk_vid, the pixel clock the scaler samples with is
+#   clk_vid_90 (a quarter cycle, 9.3 ns, later), as in Analogue's template.
+# - Audio: I2S at 12.288 MHz MCLK / 48 kHz frames, far slower than any path delay.
+set_false_path -to   [get_ports {dram_a[*] dram_ba[*] dram_dqm[*] dram_ras_n dram_cas_n dram_we_n dram_clk dram_dq[*]}]
+set_false_path -from [get_ports {dram_dq[*]}]
+set_false_path -to   [get_ports {sram_a[*] sram_oe_n sram_we_n sram_ub_n sram_lb_n sram_dq[*]}]
+set_false_path -from [get_ports {sram_dq[*]}]
+set_false_path -to   [get_ports {bridge_1wire bridge_spimiso bridge_spimosi}]
+set_false_path -from [get_ports {bridge_1wire bridge_spimiso bridge_spimosi bridge_spiss}]
+set_false_path -to   [get_ports {scal_vid[*] scal_de scal_hs scal_vs scal_skip scal_clk}]
+set_false_path -to   [get_ports {scal_auddac scal_audlrck scal_audmclk}]

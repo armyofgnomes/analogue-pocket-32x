@@ -144,6 +144,10 @@ here before asking the owner for a hardware test. `sim/vdp` is the reference che
 (`VLOG_DEFS="-suppress 2244,2388" VSIM_ARGS="-suppress 7063,7061,10000 +frames=30" sim/run.sh vdp`).
 A bench's optional `libs.txt` links more precompiled Intel libraries (e.g. `altera_lnsim`).
 
+**Regression before hardware:** `sim/regress/run.sh` (~20 min) checks the pad test program and
+Kolibri's BIOS boot against `sim/regress/golden.txt`. Run it after RTL changes; update a golden
+value only when a change is meant to alter it.
+
 Full system: `sim/system/run.sh +rom=<file> [+frames=N] [+stop_ms=N] ...` runs real cartridges
 (plusargs and trace options are listed at the top of `sim/system/tb_system.sv` and in
 `docs/m4-debug-notes.md`). The environment variables are:
