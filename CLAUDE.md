@@ -21,16 +21,28 @@ the same commit.
 
 ## Current state
 
-M0 through M4 are done: tooling, our own build on hardware, Genesis games, the memory subsystem,
-and 32X games booting. Core 0.2.0 (hardware-verified at 46d8920) plays most tested 32X and
-Genesis games with timing met at about 92% of ALMs. M5 (library playability) is in progress with
-one open item, After Burner's weapon sounds, which is postponed. Saves work on hardware
-(b94d358): cart SRAM and EEPROM live in `s32x_save_ram.sv`, a dual-clock block RAM that the APF
-save slot (data slot 10) reads and writes directly. Next in the owner's priority order: the
-remaining requirements. See `docs/test-log.md`
-for hardware results and `docs/m4-debug-notes.md` for the debugging history, the simulation
-toolkit and the After Burner notes. The repo started as `open-fpga/core-template` v1.3.0 (commit
-`da3a021`).
+M0 through M4 are done, and M6 (polish) is mostly done. Known-good builds are tagged (`v0.4.0`,
+`v0.4.1`; list in `docs/hardware-testing.md`). What works on hardware:
+- **Games:** most tested 32X and Genesis games play.
+- **Saves:** cart SRAM/EEPROM in `s32x_save_ram.sv`, served to the APF save slot.
+- **BIOS:** loaded from the SD card, with none in the bitstream; a 32X game shows a
+  missing-BIOS screen if a file is absent.
+- **Settings:** the full `interact.json` menu.
+- **Dock:** HDMI output and player 2.
+- **Look:** the "32X" icon and platform banner.
+
+Open:
+- **M5:** After Burner Complete's PWM weapon sounds. Cause found: the game keeps its sample
+  index in the SH-2 UBC register BARA, and removed patch 0005 had disabled the UBC. The fix
+  awaits a hardware test.
+- **PAL MCLK:** parked (`experiments/pal_reconfig/`).
+- **CI:** deferred by the owner.
+- **Area is tight:** synthesis estimate about 16.8k of 18.48k ALMs. Weigh the area cost of
+  any new feature.
+
+Hardware results are in `docs/test-log.md`. `docs/m4-debug-notes.md` holds the debugging
+history and the simulation toolkit. The repo started as `open-fpga/core-template` v1.3.0
+(commit `da3a021`).
 
 ## Repository layout
 
@@ -46,12 +58,17 @@ src/fpga/core/core_top.v                          APF glue: bridge, ROM loader, 
 src/fpga/core/s32x_system.sv                      Console: upstream gen + 32X + CART, SDRAM controller, fb_sram
 src/fpga/core/s32x_sdram_front.sv                 32X SDRAM front end (line buffer + write queue)
 src/fpga/core/s32x_save_ram.sv                    Cart SRAM/EEPROM save RAM, second port on the APF bridge
-src/fpga/core/pll_core.v                          PLL: MCLK 53.69, SDRAM 107.39, video 26.85 (+90°) MHz
+src/fpga/core/pll_core.v                          PLL wrapper: MCLK 53.69, SDRAM 107.39, video 26.85 (+90°) MHz
+src/fpga/core/pll/                                Generated reconfigurable PLL + reconfiguration controller (README)
+src/fpga/core/s32x_msg_rom.sv                     Font/text ROM for on-screen messages (tools/gen_msg_rom.py)
 src/fpga/core/rtl/S32X_MiSTer/                    Upstream submodule (pinned; patched at build time)
 src/fpga/core/rtl/patches/                        Our patches to upstream, applied in order
 src/fpga/core/rtl/agg23/                          agg23's MIT data_loader / sound_i2s / sync_fifo
-tools/                                            reverse_bits.py, package.py, prepare_upstream.sh
+tools/                                            build.sh, prepare_upstream.sh, reverse_bits.py, package.py,
+                                                  gen_bios_mif.py (sims), gen_images.py, gen_msg_rom.py
+sim/                                              Testbenches (sim/run.sh <bench>; sim/system/run.sh for the full system)
 experiments/fit_s32x/                             REQ-ARCH-03/04 fit experiment and variants
+experiments/pal_reconfig/                         Parked PAL MCLK switching attempt (REQ-ARCH-06)
 src/fpga/core/core_bridge_cmd.v                   Host/target command handler (data slots, status). Vendor-provided
 ```
 
@@ -91,17 +108,17 @@ src/fpga/core/core_bridge_cmd.v                   Host/target command handler (d
 
 ## Build
 
-Requires **Intel Quartus Prime Lite** (the template was created with 18.1.1; newer Lite
-releases also work, but record the version used in `docs/architecture.md` once chosen).
-Quartus isn't installed in Claude's cloud container, so Claude can edit RTL and run
-lint or simulation there, but synthesis and fitting happen on the owner's machine (or a CI
-runner with Quartus, if added later).
-
-The owner's machine has Quartus Prime Lite 25.1std at `~/altera_lite/25.1std/quartus/bin/`,
-so a local session can run the full build headless.
+Requires **Intel Quartus Prime Lite 25.1std** (recorded in `docs/architecture.md`). The owner's
+machine has it at `~/altera_lite/25.1std/quartus/bin/`, so a local session can run the full build
+headless. There is no CI yet (REQ-TOOL-06, deferred).
 
 **One command:** `tools/build.sh` does all of the steps below. `tools/build.sh --memtest` builds the
-memory self-test variant (REQ-MEM-06).
+memory self-test variant (REQ-MEM-06). The script also:
+- fails if a constraint in `core_constraints.sdc` matches nothing;
+- prints the fit summary and synthesis' ALM estimate, the stable measure of design size (the
+  fitter's figure swings by several hundred ALMs with timing effort);
+- holds the same lock as `sim/system/run.sh` while it patches the submodule and synthesizes, so
+  builds and full-system sims can run in parallel.
 
 1. Compile: `cd src/fpga && quartus_sh --flow compile ap_core` (or open `ap_core.qpf` in the
    GUI). Output: `src/fpga/output_files/ap_core.rbf`. The pre-flow hook patches the upstream
@@ -122,6 +139,16 @@ here before asking the owner for a hardware test. `sim/vdp` is the reference che
 32X framebuffer path: it runs the upstream VDP twice (MiSTer's block-RAM setup vs. ours with
 `fb_sram.sv`) on the same random traffic and requires identical output
 (`VLOG_DEFS="-suppress 2244,2388" VSIM_ARGS="-suppress 7063,7061,10000 +frames=30" sim/run.sh vdp`).
+A bench's optional `libs.txt` links more precompiled Intel libraries (e.g. `altera_lnsim`).
+
+Full system: `sim/system/run.sh +rom=<file> [+frames=N] [+stop_ms=N] ...` runs real cartridges
+(plusargs and trace options are listed at the top of `sim/system/tb_system.sv` and in
+`docs/m4-debug-notes.md`). The environment variables are:
+- `WORK=<abs dir>`: a separate run directory, so several runs can go in parallel.
+- `FAST_BIOS=1`: skips the BIOS's slow SDRAM test and cart checksum.
+- `BIOS_LOAD=1`: loads the BIOS through the core's load port instead of the preloaded `.mif`.
+
+It needs the BIOS dumps in `bios/`.
 
 ## Working with the owner
 
@@ -130,5 +157,11 @@ here before asking the owner for a hardware test. `sim/vdp` is the reference che
 - Prefer small, independently testable steps (see the milestones in `docs/requirements.md`).
   A core that boots Genesis games first, then adds 32X pieces, is much easier to debug than
   a big-bang port.
-- Treat resource usage (ALMs, M10K, PLLs) as a first-class metric. Report it from fit
-  reports whenever the owner shares them.
+- Treat resource usage (ALMs, M10K, PLLs) as a first-class metric and report it with every build
+  (synthesis estimate and fitter figure).
+- When the owner verifies a build on hardware:
+  - bump `core.json`'s version;
+  - tag the commit `vX.Y.Z` (annotated);
+  - add it to "Known-good builds" in `docs/hardware-testing.md`;
+  - log every test in `docs/test-log.md` (Pocket A: white original, B: transparent orange).
+- Commit directly to `main` and push; no PRs unless asked.

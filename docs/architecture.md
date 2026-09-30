@@ -81,7 +81,8 @@ and `sdram.sv` are GPL-3.0, `gen.sv` is BSD-style, and the SH-2 and 32X sources 
 license header. Decision: this repo is **GPL-3.0** (REQ-LEGAL-01), and S32X_MiSTer is included
 as a **git submodule with build-time patches** rather than copied in, so we don't redistribute
 code without a stated license (REQ-LEGAL-02). A distributed bitstream still contains all of it,
-which is one more reason builds stay personal-use.
+which is something to weigh before any public release (the BIOS, by contrast, is no longer in the
+bitstream: REQ-APF-03b).
 
 ## 4. The central problem: memory and logic budget
 
@@ -91,10 +92,9 @@ How the MiSTer 32X core uses memory, from `S32X.sv`:
 - **32X SDRAM (256 KB):** DDR3 by default, SDRAM optionally.
 - **32X framebuffers (2×128 KB):** **block RAM** (`spram` instances), or a second SDRAM
   board with `DUAL_SDRAM`.
-- **BIOS ROMs:** baked into the bitstream as `mdbios.mif` / `shbios.mif`. This is fine for
-  our personal-use builds, generated from gitignored local files, since the BIOS is only ~3.3 KB of
-  BRAM. It just means the bitstream can't be shared. Runtime loading from data slots is an
-  optional later upgrade.
+- **BIOS ROMs:** baked into the bitstream as `mdbios.mif` / `shbios.mif`. We did the same at
+  first (from gitignored local files); since v0.4.0 the core loads them from the SD card through
+  data slots instead (REQ-APF-03b), so the bitstream carries no BIOS.
 
 On the Pocket, the framebuffers alone (2 Mbit) would use two-thirds of all block RAM, before
 Genesis VRAM (512 Kbit), 68K RAM (512 Kbit), caches and line buffers. So **the framebuffers
@@ -105,11 +105,11 @@ must move to external memory**, and the 32X SDRAM has to go somewhere other than
 | Contents | Size | Home | Controller / port |
 |---|---|---|---|
 | Cart ROM | ≤ 4 MB (32 MB addressable) | SDRAM 0x0000000– | upstream `sdram.sv` port 1 (68K or 32X cart side), port 3 loader writes |
-| 32X SDRAM | 256 KB | SDRAM 0x1000000–0x103FFFF | `sdram.sv` port 0, via `S32X` `SDR_*` (has `SDR_WAIT`, so latency is tolerated) |
-| Cart save RAM | ≤ 64 KB | SDRAM 0x1800000–0x180FFFF | `sdram.sv` port 2 (as upstream). Save-slot plumbing is REQ-SAVE-01 |
+| 32X SDRAM | 256 KB | SDRAM bank 2 | `sdram.sv` port 0 through `s32x_sdram_front.sv` (line buffer for burst reads, write queue; line reads by patch 0008) |
+| Cart save RAM + EEPROM | ≤ 32 KB (64 KB file) | BRAM (`s32x_save_ram.sv`) | Dual-clock: console on port A, APF save slot on port B (REQ-SAVE-01). Was planned for SDRAM port 2 |
 | 32X framebuffers | 2 × 128 KB | **Async SRAM**: FB0 at words 0x00000–0x0FFFF, FB1 at 0x10000–0x1FFFF | `fb_sram.sv` (new, M3) |
 | Genesis VRAM, 68K/Z80 RAM, CRAM, VSRAM | ~136 KB | BRAM | upstream, as today |
-| 32X BIOS, SH-2 caches, palette, FIFOs | small | BRAM / MLAB | BIOS from `bios/` at build time |
+| 32X BIOS, SH-2 caches, palette, FIFOs | small | BRAM / MLAB | BIOS loaded from the SD card (data slots, patch 0011) |
 | PSRAM (2 × 16 MB) | | unused | spare, e.g. fallback for 32X SDRAM if SDRAM bandwidth is short |
 
 **Framebuffer bandwidth.** The 32X VDP (`VDP.sv`) has no wait input on its FB ports, so the
@@ -183,7 +183,8 @@ resource report. If it doesn't fit, options include:
 
 - Trim MiSTer-only features (cheats, COFI, extra video filters, dual-SDRAM paths).
 - Share one divider/multiplier between SH-2s, or trim rarely used SH-2 peripherals (SCI,
-  UBC, WDT) where no commercial game needs them.
+  UBC, WDT) where no commercial game needs them. (Later found: games use all three, the UBC
+  registers as scratch RAM; see REQ-S32X-06. None can be trimmed.)
 - Convert register-heavy structures to MLAB/M10K.
 - As a last resort, time-multiplex a single SH-2 datapath between master and slave. This is
   high risk for accuracy.
@@ -244,7 +245,7 @@ Each variant lives in `experiments/fit_s32x/variants/` and is measured against t
 |---|---|---|---|---|---|
 | `area_aggressive` | `OPTIMIZATION_MODE "AGGRESSIVE AREA"`, technique AREA, no register duplication | 16,696 | −681 | +1.405 | **Keep** (timing *improved*) |
 | `no_genmix` | Replace `jt12_genmix` PSG/FM resampler with a plain registered sum at the same levels | 16,724 | −653 | +0.803 | **Keep**: audio-quality trade-off, verify by ear |
-| `no_debug` | SH-2 UBC disabled (`UBC_DISABLE`), no In-System Memory Content Editor hub | 17,162 | −215 | +1.706 | **Keep**: no game-visible effect |
+| `no_debug` | SH-2 UBC disabled (`UBC_DISABLE`), no In-System Memory Content Editor hub | 17,162 | −215 | +1.706 | Kept at first; **UBC part reverted 2026-09-30**: After Burner uses the UBC's BARA register as scratch RAM (its PWM sample index), so disabling it silenced its PWM sounds |
 | `audio_lite` | Genesis low-pass filters bypassed (`LPF_MODE=11`), no hi-fi PCM interpolation. Also saves 10 DSP | 17,203 | −174 | +1.199 | **Keep**: audio-quality trade-off |
 | `area_balanced` | `OPTIMIZATION_MODE BALANCED` | 17,347 | −30 | +1.063 | Drop |
 | `no_wdt` | SH-2 watchdog disabled | 17,361 | −16 | +1.489 | Drop: no saving, accuracy risk |
@@ -271,9 +272,14 @@ target. Remaining candidates, roughly in order of risk:
 **Actual full build (M4, 2026-09-28):** the complete core (Genesis + 32X + Pocket side + fb_sram)
 needs **16,647 / 18,480 ALMs (90 %)**, 175 M10K, 17 DSP, with timing met (MCLK Fmax 59.3 MHz,
 setup +0.605 ns, hold +0.121 ns). That's with area-first synthesis, upstream's synthesis options,
-and the SH-2 UBC disabled; no audio trims. The first attempt with the Analogue template's
+and the SH-2 UBC disabled (since reverted, see `no_debug`); no audio trims. The first attempt with the Analogue template's
 synthesis settings needed 19,963 ALMs (108 %) and didn't fit. The template sets
 `MUX_RESTRUCTURE OFF` and lacks upstream's area options, so every block came out 10-30 % larger.
+
+**Current (v0.4.1, 2026-09-30):** synthesis estimates 16,782 ALMs (91 %); the fitter reports
+17,300–18,100 (94–98 %) depending on how much it spends on timing, with packing difficulty
+"High", 209 M10K. Restoring the UBC adds back ~245 ALMs. Watch the synthesis estimate
+(`tools/build.sh` prints it) for real growth.
 
 The headroom target is a guideline for routability and timing. openFPGA-Genesis ships at 67 %,
 but plenty of Pocket cores ship above 90 %. Timing at 85 % is +1.3 ns, better than the
@@ -299,18 +305,24 @@ baseline's.
 | `audio_mclk` | ~12.288 MHz | `sound_i2s` (from `clk_74a`) | Pocket audio codec |
 
 `clk_sys`, `clk_ram` and `clk_vid` come from one PLL and are timed as related clocks. They are
-all declared asynchronous to `clk_74a` in `core_constraints.sdc`. PAL MCLK (REQ-ARCH-06) is
-not implemented: PAL games run on the NTSC MCLK, about 1% fast.
+all declared asynchronous to `clk_74a` in `core_constraints.sdc`. The PLL is a reconfigurable
+fractional PLL (`src/fpga/core/pll/`, normal mode, global-clock feedback) with Altera's
+reconfiguration controller on `clk_74a`, idle. PAL MCLK (REQ-ARCH-06) would only change its
+fractional division, but the driven controller costs 561 ALMs, so it's parked
+(`experiments/pal_reconfig/`): PAL games run on the NTSC MCLK, about 1% fast.
 
 Clock-domain crossings:
 
-- `clk_74a` → `clk_sys`: ROM loader (agg23 `data_loader`, dual-clock FIFO); `reset_n`, PLL
-  lock, `rom_loading`, controller keys and settings through `synch_3` (all quasi-static);
-  save data through the dual-clock save RAM (the console is held in reset while it loads).
+- `clk_74a` → `clk_sys`: ROM and BIOS loader (agg23 `data_loader`, dual-clock FIFO); `reset_n`,
+  PLL lock, `rom_loading`, controller keys and settings through `synch_3` (all quasi-static,
+  kept out of block RAM by a QSF assignment); save data through the dual-clock save RAM (the
+  console is held in reset while it loads).
 - `clk_sys` → `clk_74a`: audio samples into `sound_i2s`; save data read by the bridge from
   the save RAM's second port.
 - `clk_sys` ↔ `clk_ram` (2×, same PLL): requests sampled on the clk_ram edge in the middle
-  of the clk_sys cycle (patch 0007, `fb_sram.sv`), with a multicycle hold in the SDC.
+  of the clk_sys cycle (patch 0007, `fb_sram.sv`), with a multicycle hold in the SDC. The mid-edge
+  enable is registered one edge ahead, so only one flop sees the half-cycle path. SDRAM line-read
+  data into the 32X front end has a hold exception (it's copied only after busy falls).
 - `clk_sys` → `clk_vid` (MCLK/2, same PLL): pixels latched in clk_sys and flagged with a
   toggle; ordinary synchronous paths.
 
@@ -320,8 +332,8 @@ Clock-domain crossings:
   Questa FPGA Starter Edition is installed alongside it for simulation.
 - The template was created with 18.1.1. It compiles unchanged in 25.1std, and the template
   IP (`mf_pllbase`) needed no upgrade. Only `LAST_QUARTUS_VERSION` in `ap_core.qsf` changed.
-- Headless build: `cd src/fpga && quartus_sh --flow compile ap_core`, then
-  `tools/reverse_bits.py` and `tools/package.py [--zip]`.
+  (The core's own PLL was later regenerated with 25.1std's `ip-generate`.)
+- Headless build: `tools/build.sh` (see `CLAUDE.md`).
 - Template baseline (2026-09-28, 25.1std): 413 / 18,480 ALMs (2 %), 718 registers, 2 / 308
   M10K, 0 DSP, 1 / 4 PLL, 224 / 224 pins. Timing met in all corners (worst hold slack
   +0.110 ns on `clk_74a`, fast 0 °C corner). No critical warnings.
@@ -333,7 +345,8 @@ Clock-domain crossings:
 - The Pocket scaler needs fixed modes in `video.json`: at minimum 320×224 (H40), 256×224
   (H32), and 240-line PAL variants, selected at runtime via the scaler-slot mechanism
   (`video_rgb` bits during `!video_de` at the start of a frame). openFPGA-Genesis already
-  handles H32/H40 switching and is the reference.
+  handles H32/H40 switching and is the reference. As built, H32/H40 × 224 are verified on
+  hardware; the 240-line slots are defined but not yet seen on hardware.
 - Pixel clock: keep a fixed video clock and use `video_de`/`video_skip` so H32/H40 changes
   don't need PLL reconfiguration.
 
@@ -341,9 +354,9 @@ Clock-domain crossings:
 
 | # | Risk | Impact | Mitigation |
 |---|---|---|---|
-| R1 | Doesn't fit in 18.5K ALMs | Project-blocking | REQ-ARCH-03 before anything else. Trim features. Share logic |
+| R1 | Doesn't fit in 18.5K ALMs | Project-blocking | Fits (synthesis ~91 %), but new features need an area budget; see §4 "Current" |
 | R2 | Framebuffer bandwidth in SRAM/PSRAM too low | Visual glitches, slowdowns | Bandwidth model from 32X VDP access patterns. Line buffers. Fallbacks in §4 |
 | R3 | SH-2 memory latency (non-DDR3) hurts timing-sensitive games | Game bugs | Cycle-accurate wait-state model. Test against the known-sensitive game list |
 | R4 | Timing closure at speed grade 8 | Instability across units | Pipeline critical paths. Test on **multiple Pockets** (the owner has several) |
 | R5 | GPL obligations | Legal | LICENSE, source availability, attribution (REQ-LEGAL-*) |
-| R6 | BIOS handling | Can't publish a bitstream with embedded BIOS | Accepted for personal use. BIOS stays out of git. Runtime loading (REQ-APF-03b) only if we ever publish |
+| R6 | BIOS handling | Can't publish a bitstream with embedded BIOS | Resolved: loaded from the SD card at runtime (REQ-APF-03b, v0.4.0); BIOS stays out of git |

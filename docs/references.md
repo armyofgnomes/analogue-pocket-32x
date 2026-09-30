@@ -21,6 +21,7 @@
 | openfpga-megacd | https://github.com/neutralinsomniac/openfpga-megacd | Pocket Genesis + Mega CD: large Sega add-on on Pocket |
 | Analogizer_openFPGA-Genesis | https://github.com/RndMnkIII/Analogizer_openFPGA-Genesis | Another Pocket Genesis variant |
 | openfpga-NES (agg23) | https://github.com/agg23/openfpga-NES | Well-documented Pocket port patterns (saves, settings, sleep) |
+| analogue-pocket-utils (agg23) | https://github.com/agg23/analogue-pocket-utils | Source of our `rtl/agg23/` (data loader, I2S, sync FIFO). Its `data_unloader` reads its second 16-bit half without checking it has arrived, so saves don't use it |
 
 ## Hardware documentation
 
@@ -30,6 +31,13 @@
 - Genesis/Mega Drive: Sega *Genesis Software Manual*, Charles MacDonald's VDP document,
   Plutiedev (https://plutiedev.com)
 - SpritesMind forum (32X/Genesis homebrew and hardware research)
+
+## Tools
+
+- Altera PLL IP: `altera_pll` / `altera_pll_reconfig` user guide (Cyclone V fractional PLL,
+  dynamic reconfiguration registers: MODE 0, START 2, M 4, C 5, DSM/fractional 7).
+- Capstone 6 (`pip install capstone`) disassembles SH-2 (`CS_ARCH_SH`, `CS_MODE_SH2 |
+  CS_MODE_BIG_ENDIAN`). Decode word by word: it stops at the first data word otherwise.
 
 ## Emulators useful as behavioral references
 

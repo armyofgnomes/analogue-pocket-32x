@@ -44,16 +44,17 @@ Pocket's screenshot feature or via the Dock's HDMI output.
 
 ## Log
 
-Results go in `docs/test-log.md` (create on first test): date, build hash, Pocket
-(label them A/B/C…), firmware version, handheld/docked, results.
+Results go in `docs/test-log.md`: date, build hash, Pocket (A/B, see "Multiple Pockets"),
+firmware version, handheld/docked, results.
 
 ## Debug aids
 
-- **On-screen debug:** a debug build flag that overlays status (PC of each CPU, memory
-  test result, BIOS present, load state) on the video output. This is the main
-  observability tool without JTAG.
-- **Bridge-readable status registers:** expose counters/state at a bridge address so the
-  host side can report them.
+- **On-screen output:** the memory self-test build (`tools/build.sh --memtest`) draws pass/fail
+  bars over the picture, and `s32x_msg_rom.sv` + `tools/gen_msg_rom.py` provide a text screen
+  (used for the missing-BIOS message) that a debug build could reuse. A general status overlay
+  (CPU PCs, load state) doesn't exist yet.
+- **Bridge-readable status registers** (idea, not built): expose counters/state at a bridge
+  address so the host side can report them.
 - **JTAG + SignalTap** (`src/fpga/core/stp1.stp` exists in the template): every Pocket has
   a JTAG header on the bottom edge next to the USB-C port (see Analogue's openFPGA
   "Getting Started" docs). With a USB Blaster connected you can load a `.sof` directly,
@@ -69,8 +70,16 @@ Results go in `docs/test-log.md` (create on first test): date, build hash, Pocke
 ## Known-good builds
 
 Hardware-verified builds are tagged `vX.Y.Z` (annotated, with notes); `core.json` carries the
-same version. To go back to one: `git checkout vX.Y.Z -- output/bitstream.rbf_r` (or check out
-the tag) and `tools/package.py --zip`. Every build commit also contains its bitstream.
+same version. To go back to one, package the tag's whole tree, not just its bitstream (the JSON
+files change too, e.g. the BIOS slot addresses between v0.4.0 and v0.4.1):
+
+```
+git worktree add /tmp/32x-v0.4.1 v0.4.1
+cd /tmp/32x-v0.4.1 && python3 tools/package.py --zip    # SD tree in /tmp/32x-v0.4.1/build/sdcard
+git worktree remove /tmp/32x-v0.4.1                     # afterwards, from the main checkout
+```
+
+Every build commit also contains its bitstream.
 
 | Tag | Commit | Highlights |
 |---|---|---|

@@ -22,7 +22,7 @@ Update the status column in the same commit that completes a requirement.
 | **M2: Genesis on Pocket** ✅ 2026-09-28 | The Genesis half of the system runs, from the S32X codebase with 32X disabled | Several Genesis games boot and play with sound and input |
 | **M3: 32X memory subsystem** ✅ 2026-09-28 (memory; BIOS embedding verified in M4) | Framebuffers, 32X SDRAM and BIOS live in Pocket memory | Memory test patterns pass on HW. BIOS present (embedded is fine) |
 | **M4: 32X boots** ✅ 2026-09-29 (commercial games boot and play: Kolibri, Doom, Pitfall, Virtua Fighter, Spider-Man, Primal Rage) | Both SH-2s run BIOS code | 32X BIOS/security screen shown. A simple 32X homebrew/test ROM runs |
-| **M5: Games playable** (in progress: most titles tested play: Kolibri, Doom, Chaotix, NBA Jam TE, Pitfall, Primal Rage, Spider-Man, Virtua Fighter and a wider set; open: After Burner Complete seems to lack its weapon-fire sound, other audio fine) | Commercial 32X library playable | Test-matrix games (REQ-QA-03) boot and play with correct video/audio |
+| **M5: Games playable** (in progress: most titles tested play: Kolibri, Doom, Chaotix, NBA Jam TE, Pitfall, Primal Rage, Spider-Man, Virtua Fighter, Mortal Kombat II and a wider set; open: After Burner Complete's weapon sounds, fix awaiting hardware test) | Commercial 32X library playable | Test-matrix games (REQ-QA-03) boot and play with correct video/audio |
 | **M6: Polish** (in progress: saves, settings, dock and icon done; PAL open) | Saves, settings, PAL, dock, accuracy fixes | P1 requirements done |
 | **M7: Release (optional)** | Public release, only if BIOS is runtime-loaded | REQ-APF-03b and REQ-DIST-* done |
 
@@ -107,12 +107,12 @@ Update the status column in the same commit that completes a requirement.
 
 | ID | Pri | Requirement | Verify | Status |
 |---|---|---|---|---|
-| REQ-S32X-01 | P0 | Two SH7604 instances (master/slave) with caches, DMAC, DIVU, MULT, FRT, INTC, WDT as needed by games | HW | DONE: upstream SH-2 cores with the UBC removed (patch 0005); both CPUs run the BIOS and games. After Burner's missing weapon sounds (DMA-fed PWM) may involve the DMAC; tracked in REQ-S32X-06 |
+| REQ-S32X-01 | P0 | Two SH7604 instances (master/slave) with caches, DMAC, DIVU, MULT, FRT, INTC, WDT as needed by games | HW | DONE: upstream SH-2 cores, all peripherals enabled (patch 0005's UBC disable was reverted: games use UBC registers as scratch RAM); both CPUs run the BIOS and games |
 | REQ-S32X-02 | P0 | 68K-side interface: adapter control, interrupt control, bank set, DREQ FIFO, comm ports, SEGA TV register, 68K ROM windows at 0x880000 / 0x900000 | HW | DONE: upstream 68K-side interface; 32X games boot, run and use comm ports and banking on hardware |
 | REQ-S32X-03 | P0 | SH-2-side system registers: interrupt mask, standby, H-count, DREQ, comm ports, PWM regs, SH-2 view of cart at 0x02000000 | HW | DONE: upstream SH-2-side registers; verified by games on hardware |
 | REQ-S32X-04 | P0 | 32X VDP: packed-pixel, direct-color and run-length modes. Line table. Shift. Auto-fill. FB swap at VBlank. 256-color palette | HW | DONE: upstream 32X VDP with framebuffers in the async SRAM (`fb_sram.sv`, patches 0004/0006), proven against MiSTer's BRAM framebuffers by `sim/vdp`; games display correctly on hardware |
 | REQ-S32X-05 | P0 | Video compositing with Genesis VDP using 32X priority bit and "32X layer enable" semantics | HW | DONE: upstream compositing; 32X and Genesis layers combine correctly in the games tested, including H32 (46d8920) |
-| REQ-S32X-06 | P0 | PWM audio (2 ch) with cycle register and FIFO/timer interrupt | HW | WIP: PWM audio plays in games, but After Burner Complete's weapon sounds (fed to PWM by SH-2 DMA) are missing; postponed, notes in `docs/m4-debug-notes.md` |
+| REQ-S32X-06 | P0 | PWM audio (2 ch) with cycle register and FIFO/timer interrupt | HW | WIP: PWM audio plays in games. After Burner Complete's missing weapon sounds were caused by patch 0005 disabling the SH-2 UBC, whose BARA register the game uses to hold its PWM sample index (see `docs/m4-debug-notes.md`); patch removed, awaiting hardware test. A scan of 22 ROMs found UBC registers also used by Tempo, SCI by Brutal Unleashed, Cosmic Carnage and Virtua Racing Deluxe, WDT by Star Wars Arcade and WWF WrestleMania, so none of these peripherals can be trimmed |
 | REQ-S32X-07 | P0 | BIOS boot flow completes: security check, "SEGA" / 32X startup, handoff to game | HW | DONE: the BIOS boots (SEGA screen, security check, handoff) for every 32X game tested since 6486cf4 |
 | REQ-S32X-08 | P1 | Correct cycle timing / wait states for SH-2 accesses to cart, SDRAM, FB, VDP registers (the timing-sensitive games in REQ-QA-03 behave) | HW | WIP: SDRAM, framebuffer and cart access timing are close enough for the games tested (Virtua Fighter's speed confirmed); REQ-QA-03's timing-sensitive titles not yet all checked |
 | REQ-S32X-09 | P1 | Running 32X ROMs with no BIOS present, via HLE boot, is **out of scope**. Documented, not implemented | DOC | DONE (documented): listed under out of scope. Revisit together with REQ-APF-03b if the BIOS must be kept out of the bitstream |
@@ -164,8 +164,8 @@ Update the status column in the same commit that completes a requirement.
 
 ## 14. Distribution (DIST)
 
-Public release is optional. The owner is fine with a personal-use-only core. These matter
-only if we decide to publish, which also requires REQ-APF-03b (no embedded BIOS).
+Public release is optional; the owner hasn't decided. REQ-APF-03b is done (no BIOS in the
+bitstream), so publishing needs these plus a look at the upstream licensing (architecture.md §3).
 
 | ID | Pri | Requirement | Verify | Status |
 |---|---|---|---|---|
@@ -183,5 +183,4 @@ only if we decide to publish, which also requires REQ-APF-03b (no embedded BIOS)
   a custom adapter).
 - Link cable / multiplayer between Pockets.
 - HLE BIOS replacement (REQ-S32X-09).
-- Public distribution is optional (see §14). A personal-use build with embedded BIOS is an
-  acceptable final outcome.
+- Public distribution is optional (see §14).

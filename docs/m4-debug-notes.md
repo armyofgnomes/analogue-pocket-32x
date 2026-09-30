@@ -3,24 +3,37 @@
 Working notes for getting 32X games running. Newest first. Written so a new session can pick up
 where the last one stopped.
 
-## Status (2026-09-29, afternoon)
+## Status (2026-09-30)
 
-Latest Pocket build: **6a7d9cb** (SDRAM pins in I/O cells). Hardware results for it:
+M4 is done and most tested 32X games play (see `docs/test-log.md`). This file is now the
+debugging history: each "Found" section is a solved problem, kept for the method and the tools.
+The simulation toolkit is described at the end.
 
-| Game | Result |
-|---|---|
-| Sonic (Genesis) | Boots, sound, playable |
-| Doom | Boots past SEGA logo; 32X layer corrupted (two half-width title copies, checkerboard menu, flat blue/purple play view) |
-| Kolibri | Black screen |
-| Spider-Man | Flashing red bar at the bottom |
-| Chaotix | Black screen, buzzing noise |
-| Pitfall | SEGA logo, then black |
-| Primal Rage | SEGA logo offset to the right, then black |
-| NBA Jam TE, Virtua Fighter | Black screen |
+Open: After Burner Complete's PWM weapon sounds. The cause was found (below); the fix awaits a
+hardware test.
 
-No Pocket build is pending. The next build comes after the cause below is found and fixed.
+## Found (2026-09-30): After Burner Complete's PWM sounds need the SH-2 UBC registers
 
-## Open (postponed): After Burner Complete lacks its cannon and missile sounds
+The PWM sample routine at SH-2 0x06000390 (probably the PWM timer interrupt) keeps its ring-buffer
+index in 0xFFFFFF40: the User Break Controller's BARA register, used as spare RAM. Each call it
+reads the index, loads the L/R sample pair from the ring at 0x0603F100, adds 4 and writes the
+index back, then writes the pair to the PWM with one 32-bit store (`mov.l r0,@(52,gbr)`, GBR =
+0x20004000, so 0x20004034 = LPWR/RPWR). Patch 0005 had disabled both SH-2s' UBC (`UBC_DISABLE`)
+to save ~245 ALMs, assuming only debuggers use it; upstream's UBC is nothing but its registers
+(the break interrupt is tied off). With it disabled the index never advanced, so the PWM replayed
+one sample: silence. Patch 0005 is removed.
+
+How it was found: a word-by-word SH-2 disassembly of the game's SH-2 code (Capstone 6 in a
+scratch venv; `mov.l @(disp,pc)` literals resolved to their values), searching for PWM register
+stores. The earlier static look (kept below) missed them because it looked for absolute
+addresses, not GBR-relative stores, and its "28 DMA base loads" were mostly the byte value
+0x80 used as a marker: the game doesn't feed PWM by DMA.
+
+Lesson: SH-2 on-chip registers that "only debuggers use" can be scratch RAM for a game.
+
+### Earlier notes (superseded)
+
+Postponed: After Burner Complete lacks its cannon and missile sounds
 
 Reported on 46d8920: music and some effects play, the cannon and missile sounds don't. Not a
 known upstream issue as far as a search shows; our upstream pin (b438679, 2026-06-22) is upstream's

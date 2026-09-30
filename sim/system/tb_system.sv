@@ -567,6 +567,19 @@ always @(posedge clk_sys) begin
 	end
 end
 
+// PWM output and the master SH-2's UBC BARA (After Burner keeps its PWM ring-buffer index there)
+int n_pwm_chg, n_bara_chg;
+reg [15:0] pwm_l_d, bara_d;
+always @(posedge clk_sys) begin
+	pwm_l_d <= dut.S32X.s32x_if.PWM_L;
+	bara_d  <= dut.S32X.MSH.UBC.BARAH;
+	if (dut.S32X.s32x_if.PWM_L !== pwm_l_d) n_pwm_chg++;
+	if (dut.S32X.MSH.UBC.BARAH !== bara_d) begin
+		n_bara_chg++;
+		if (n_bara_chg <= 12) $display("%t master UBC BARAH = %04h", $realtime, dut.S32X.MSH.UBC.BARAH);
+	end
+end
+
 // Save RAM activity (cart SRAM accesses, EEPROM storage reads/writes)
 int n_sram_rd, n_sram_wr, n_eep_wr;
 reg sram_req_d;
@@ -583,9 +596,9 @@ end
 // Progress report every ~5 ms of simulated time
 always begin
 	#(5ms);
-	$display("%t progress: frame %0d line %0d, 68K at %06h, SH-2 CS0 cycles M/S %0d/%0d, FB writes %0d, 32X SDRAM accesses %0d, FS=%b, save RAM rd/wr %0d/%0d, EEPROM wr %0d",
+	$display("%t progress: frame %0d line %0d, 68K at %06h, SH-2 CS0 cycles M/S %0d/%0d, FB writes %0d, 32X SDRAM accesses %0d, FS=%b, save RAM rd/wr %0d/%0d, EEPROM wr %0d, PWM_L changes %0d, BARAH changes %0d",
 	         $realtime, frame, y, {dut.gen.M68K_A, 1'b0}, n_msh_cs0, n_ssh_cs0, n_fb_wr, n_sdr, dut.FB_FS,
-	         n_sram_rd, n_sram_wr, n_eep_wr);
+	         n_sram_rd, n_sram_wr, n_eep_wr, n_pwm_chg, n_bara_chg);
 end
 
 endmodule
