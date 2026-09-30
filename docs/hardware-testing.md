@@ -93,6 +93,24 @@ releases are the archive. Commits up to v0.4.2 still contain their bitstreams.
 Releases v0.4.0 to v0.4.2 were created afterwards from their tags (each packaged from its own
 tree, which then still contained its bitstream).
 
+## Regression set (REQ-QA-04)
+
+Checked on every build that changes the bitstream, on top of whatever the change targets. About
+ten minutes; each game covers something the others don't.
+
+| Game | What it covers |
+|---|---|
+| Kolibri (32X) | 32X boot, both SH-2s, framebuffer drawing, PWM |
+| Doom (32X) | 32X SDRAM traffic (cache fills), heavy framebuffer writes |
+| Knuckles' Chaotix (32X) | Battery SRAM save: load the save |
+| After Burner Complete (32X) | PWM samples through the SH-2 UBC registers: fire the cannon |
+| Virtua Fighter (32X) | Polygon rendering, speed (in-game clock) |
+| Sonic The Hedgehog 3 (Genesis) | Genesis path, FM/PSG audio, battery SRAM save |
+| Mega Man: The Wily Wars (Genesis) | H32 (256-pixel) picture timing, EEPROM |
+
+Plus, when relevant: Mystic Defender for the Region setting, the pad test program for the
+6-button pad, and a BIOS file renamed for the missing-BIOS screen.
+
 ## Known-good test cases
 
 - **Pad test program:** `python3 sim/system/roms/make_padtest.py build/padtest.bin` builds a tiny

@@ -13,7 +13,9 @@ Planning docs live in `docs/`:
 
 - `docs/requirements.md`: the numbered requirements and milestone plan. **Start here.**
 - `docs/architecture.md`: target hardware, Pocket resource budget, memory map plan, risks.
-- `docs/hardware-testing.md`: how builds get onto a Pocket and how results come back.
+- `docs/hardware-testing.md`: how builds get onto a Pocket, results, the regression set, releases.
+- `docs/game-matrix.md`: 32X games and their status (REQ-QA-03).
+- `CHANGELOG.md`: per-version changes (add an entry with each release).
 - `docs/references.md`: upstream cores, datasheets and specs.
 
 When a requirement is completed or changes, update its status in `docs/requirements.md` in
@@ -163,6 +165,7 @@ It needs the BIOS dumps in `bios/`.
 - When the owner verifies a build on hardware:
   - bump `core.json`'s version;
   - tag the commit `vX.Y.Z` (annotated), push it;
+  - add a `CHANGELOG.md` entry;
   - run `tools/release.sh vX.Y.Z` to create the GitHub release with the SD zip;
   - add it to "Known-good builds" in `docs/hardware-testing.md`;
   - log every test in `docs/test-log.md` (Pocket A: white original, B: transparent orange).

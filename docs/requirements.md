@@ -36,7 +36,7 @@ Update the status column in the same commit that completes a requirement.
 | REQ-TOOL-02 | P0 | Script to bit-reverse `ap_core.rbf` → `bitstream.rbf_r` (e.g. `tools/reverse_bits.py`) | SIM | DONE |
 | REQ-TOOL-03 | P0 | Script to assemble an SD-card-ready package (`Cores/`, `Platforms/`, `Assets/` layout) from repo files + built bitstream | HW | DONE |
 | REQ-TOOL-04 | P1 | Simulation setup for core logic (Verilator and/or GHDL + Icarus/ModelSim for mixed VHDL/Verilog), runnable in Claude's container | SIM | DONE |
-| REQ-TOOL-05 | P1 | Build-ID and version stamping (template's `build_id_gen.tcl`) surfaced in `core.json` versions/release notes | DOC | WIP: the template's `build_id_gen.tcl` stamps every bitstream (`apf/build_id.mif`); `core.json` version and date are still set by hand |
+| REQ-TOOL-05 | P1 | Build-ID and version stamping (template's `build_id_gen.tcl`) surfaced in `core.json` versions/release notes | DOC | DONE: the template's `build_id_gen.tcl` stamps every bitstream with its build date/time; releases are identified by the `core.json` version, the annotated tag and the build fingerprint `tools/release.sh` checks. A build ID in the version string isn't needed |
 | REQ-TOOL-06 | P2 | CI build (GitHub Actions with a Quartus container) producing the `.rbf_r` and zip artifact | FIT | TODO (deferred by the owner, 2026-09-30). Findings: Intel/Altera's Quartus installers return 403 to scripted downloads (login required), so GitHub-hosted runners would need a community Quartus Docker image (a different version than our 25.1std, so fit/timing may differ) and use the private repo's 2,000 free minutes/month (~30-45 min per build). Alternatives: a self-hosted runner on the owner's PC (same Quartus, unlimited), or no CI and a GitHub Release per hardware-verified build. Meanwhile every build commit already carries its `output/bitstream.rbf_r` |
 
 ## 2. Legal and provenance (LEGAL)
@@ -46,7 +46,7 @@ Update the status column in the same commit that completes a requirement.
 | REQ-LEGAL-01 | P0 | Choose a project license compatible with imported GPL code (GPLv3 likely) and add `LICENSE` | DOC | DONE |
 | REQ-LEGAL-02 | P0 | Every imported third-party directory keeps its license and records upstream URL + commit | DOC | DONE: `rtl/agg23/` keeps its MIT `LICENSE` and records URL + commit in its README; S32X_MiSTer is a pinned submodule (URL + commit in `.gitmodules` and git), modified only through `rtl/patches/` |
 | REQ-LEGAL-03 | P0 | No copyrighted BIOS/ROM data committed to git. Strip upstream `mdbios.mif` / `shbios.mif` from imported code. Local BIOS goes in a gitignored `bios/` dir. A bitstream with embedded BIOS is fine for **personal use** but must never be published | DOC | DONE |
-| REQ-LEGAL-04 | P1 | Credits/attribution in `README.md` and `info.txt` (srg320, Jorge Cwik/fx68k, Jose Tejada/jt12/jt89, T80 authors, Genesis core authors, Pocket port authors referenced) | DOC | WIP: `README.md` has a Credits section (srg320/MiSTer, fx68k, jt12/jt89, SDRAM controller, T80, agg23, openFPGA-Genesis, Analogue template); `info.txt` has no credits yet |
+| REQ-LEGAL-04 | P1 | Credits/attribution in `README.md` and `info.txt` (srg320, Jorge Cwik/fx68k, Jose Tejada/jt12/jt89, T80 authors, Genesis core authors, Pocket port authors referenced) | DOC | DONE: README Credits section (srg320/MiSTer, fx68k, jt12/jt89, SDRAM controller, T80, agg23, openFPGA-Genesis, Analogue template, Altera IP, fonts) and a short credits line in `info.txt` |
 
 ## 3. Architecture decisions (ARCH)
 
@@ -157,8 +157,8 @@ Update the status column in the same commit that completes a requirement.
 |---|---|---|---|---|
 | REQ-QA-01 | P0 | Hardware test protocol followed per `hardware-testing.md`; results logged in `docs/test-log.md` | DOC | DONE (ongoing): every hardware test has a row in `docs/test-log.md` |
 | REQ-QA-02 | P0 | Every release build tested on **at least two different Pockets** (catches marginal timing) | HW | WIP: eb1adfb verified on a second Pocket (B); earlier builds were tested on one |
-| REQ-QA-03 | P0 | Game test matrix covering the 32X library, especially titles known to stress SH-2 timing, dual-CPU sync, PWM and all VDP modes (e.g. Virtua Racing Deluxe, Star Wars Arcade, Doom, Knuckles' Chaotix, Kolibri, Virtua Fighter, Metal Head, Tempo, Mortal Kombat II, Spider-Man: Web of Fire, Shadow Squadron, After Burner Complete, Space Harrier, NBA Jam TE, FIFA 96). Use the MiSTer "Game list.xlsx" for known-issue cross-reference | HW | WIP: tested and playable: Kolibri, Doom, Chaotix, NBA Jam TE, Pitfall, Primal Rage, Spider-Man, Virtua Fighter, Mortal Kombat II, After Burner (weapon sounds missing) and others; no formal matrix yet |
-| REQ-QA-04 | P1 | Genesis regression set (a handful of Genesis games) still passes after 32X work | HW | WIP: Genesis games checked for regressions in most test rounds (Sonic, Sonic 3, Mega Man: The Wily Wars, Mystic Defender); not yet a fixed list |
+| REQ-QA-03 | P0 | Game test matrix covering the 32X library, especially titles known to stress SH-2 timing, dual-CPU sync, PWM and all VDP modes (e.g. Virtua Racing Deluxe, Star Wars Arcade, Doom, Knuckles' Chaotix, Kolibri, Virtua Fighter, Metal Head, Tempo, Mortal Kombat II, Spider-Man: Web of Fire, Shadow Squadron, After Burner Complete, Space Harrier, NBA Jam TE, FIFA 96). Use the MiSTer "Game list.xlsx" for known-issue cross-reference | HW | WIP: `docs/game-matrix.md` lists the 32X library with per-game status (12 play on hardware incl. every title reported so far, 12 ROMs not yet reported individually, the rest untested) and the features each game exercises. The library list is from memory: to be checked against MiSTer's game list |
+| REQ-QA-04 | P1 | Genesis regression set (a handful of Genesis games) still passes after 32X work | HW | DONE: fixed regression set in `docs/hardware-testing.md` (Kolibri, Doom, Chaotix save, After Burner PWM, Virtua Fighter, Sonic 3, Wily Wars), checked on every bitstream change |
 | REQ-QA-05 | P1 | Homebrew/test ROMs for 32X VDP modes, PWM, comm ports used as automated-ish checks in sim and on HW | SIM/HW | WIP: a pad test program (`sim/system/roms/make_padtest.py`) runs in sim and on hardware; no 32X-specific test ROMs yet |
 | REQ-QA-06 | P1 | 30-minute soak test with no hangs, audio drift or video loss, in handheld and docked mode | HW | TODO |
 
@@ -170,9 +170,9 @@ bitstream), so publishing needs these plus a look at the upstream licensing (arc
 | ID | Pri | Requirement | Verify | Status |
 |---|---|---|---|---|
 | REQ-DIST-01 | P1 | Release zip matching the Pocket SD-card layout, installable by unzip-to-root | HW | DONE: `tools/package.py --zip` makes the unzip-to-root SD tree; `tools/release.sh` publishes it as a GitHub release per hardware-verified tag (releases v0.4.0 to v0.4.2, private repo for now) |
-| REQ-DIST-02 | P1 | `README.md` rewritten: features, install, BIOS filenames and placement, known issues, credits | DOC | TODO |
+| REQ-DIST-02 | P1 | `README.md` rewritten: features, install, BIOS filenames and placement, known issues, credits | DOC | DONE: README covers status, install, BIOS names and placement, settings, known issues and limits, building, simulation, how the core was made, credits and license |
 | REQ-DIST-03 | P1 | `updaters.json` / inventory-compatible metadata so the core shows up in community updaters (e.g. pocket_updater, openFPGA Library) | DOC | TODO |
-| REQ-DIST-04 | P1 | Semantic versioning and release notes per release | DOC | WIP: semantic versions (`core.json`, annotated tags) with release notes from the tag message; no changelog file yet |
+| REQ-DIST-04 | P1 | Semantic versioning and release notes per release | DOC | DONE: semantic versions in `core.json` and annotated tags, release notes from the tag message, and `CHANGELOG.md` |
 
 ---
 

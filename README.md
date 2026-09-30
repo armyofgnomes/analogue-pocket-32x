@@ -17,10 +17,20 @@ memories, clocks, video and the Analogue Pocket Framework (APF).
 - No PAL timing: European games run on the NTSC master clock, about 1% fast.
 
 Progress, requirements and hardware test results are tracked in [`docs/`](docs/):
-[`requirements.md`](docs/requirements.md) (milestones), [`test-log.md`](docs/test-log.md)
-(per-build hardware results), [`hardware-testing.md`](docs/hardware-testing.md) (test procedure,
+[`requirements.md`](docs/requirements.md) (milestones), [`game-matrix.md`](docs/game-matrix.md)
+(32X games and their status), [`test-log.md`](docs/test-log.md) (per-build hardware results), [`hardware-testing.md`](docs/hardware-testing.md) (test procedure,
 known-good builds), [`m4-debug-notes.md`](docs/m4-debug-notes.md) (debugging history and the
 simulation toolkit) and [`architecture.md`](docs/architecture.md) (memory map, clocks, fit).
+Version history: [`CHANGELOG.md`](CHANGELOG.md).
+
+## Known issues and limits
+
+- **PAL timing:** European games (and the Europe region setting) run on the NTSC master clock, so
+  about 1% fast. PAL clock switching is parked (`experiments/pal_reconfig/`).
+- **Not yet seen on hardware:** interlaced video (e.g. Sonic 2's two-player mode), the 240-line
+  PAL picture modes, and Super Street Fighter II's cartridge banking.
+- **No save states (Memories)** or sleep.
+- Untested 32X games are listed in [`docs/game-matrix.md`](docs/game-matrix.md).
 
 ## Using a build
 
