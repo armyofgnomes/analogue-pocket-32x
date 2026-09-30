@@ -21,15 +21,15 @@ the same commit.
 
 ## Current state
 
-M0 through M3 are done: tooling, our own build on hardware, Genesis games on the Pocket, and
-the memory subsystem (SDRAM ports plus both 32X framebuffers in the async SRAM) proven by the
-memtest build. M4 (32X games boot) is in progress. The full Genesis + 32X system fits at about
-90% of ALMs with timing met. On hardware the 32X boots and Doom runs with a corrupted 32X layer;
-most other 32X games show black screens. The full-system sim (`sim/system`) reproduces Kolibri's
-failure: its slave SH-2 jumps to garbage after the BIOS hands off. See `docs/test-log.md` for the
-latest hardware results and **`docs/m4-debug-notes.md` for the current investigation (lead,
-ruled-out causes, simulation toolkit, next step)**. The repo started as `open-fpga/core-template`
-v1.3.0 (commit `da3a021`).
+M0 through M4 are done: tooling, our own build on hardware, Genesis games, the memory subsystem,
+and 32X games booting. Core 0.2.0 (hardware-verified at 46d8920) plays most tested 32X and
+Genesis games with timing met at about 92% of ALMs. M5 (library playability) is in progress with
+one open item, After Burner's weapon sounds, which is postponed. Saves (REQ-SAVE-01/02) are next
+in the owner's priority order: cart SRAM and EEPROM live in `s32x_save_ram.sv`, a dual-clock
+block RAM that the APF save slot (data slot 10) reads and writes directly. See `docs/test-log.md`
+for hardware results and `docs/m4-debug-notes.md` for the debugging history, the simulation
+toolkit and the After Burner notes. The repo started as `open-fpga/core-template` v1.3.0 (commit
+`da3a021`).
 
 ## Repository layout
 
@@ -43,6 +43,8 @@ src/fpga/ap_core.qpf / ap_core.qsf                Quartus project (Cyclone V 5CE
 src/fpga/apf/                                     Analogue framework glue. Treat as vendor code; do not edit
 src/fpga/core/core_top.v                          APF glue: bridge, ROM loader, input, video formatter, audio
 src/fpga/core/s32x_system.sv                      Console: upstream gen + 32X + CART, SDRAM controller, fb_sram
+src/fpga/core/s32x_sdram_front.sv                 32X SDRAM front end (line buffer + write queue)
+src/fpga/core/s32x_save_ram.sv                    Cart SRAM/EEPROM save RAM, second port on the APF bridge
 src/fpga/core/pll_core.v                          PLL: MCLK 53.69, SDRAM 107.39, video 26.85 (+90°) MHz
 src/fpga/core/rtl/S32X_MiSTer/                    Upstream submodule (pinned; patched at build time)
 src/fpga/core/rtl/patches/                        Our patches to upstream, applied in order

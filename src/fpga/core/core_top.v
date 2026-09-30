@@ -300,10 +300,8 @@ always @(*) begin
     default: begin
         bridge_rd_data <= 0;
     end
-    32'h10xxxxxx: begin
-        // example
-        // bridge_rd_data <= example_device_data;
-        bridge_rd_data <= 0;
+    32'h6xxxxxxx: begin
+        bridge_rd_data <= save_rd_data;
     end
     32'hF8xxxxxx: begin
         bridge_rd_data <= cmd_bridge_rd_data;
@@ -547,6 +545,30 @@ data_loader #(
 );
 
 ////////////////////////////////////////////////////////////////////////////////////////
+// Save data (non-volatile data slot 10 at bridge address 0x60000000, see data.json)
+// The 64 KB save file is loaded while the ROM loads (the console is held in reset until every
+// slot is done) and read back by the Pocket when the game is closed. It lives in the console's
+// save RAM (s32x_save_ram.sv), whose second port runs on clk_74a and serves the bridge directly.
+// Bridge words are big-endian (bridge_endian_little = 0): {FF, data, FF, data}.
+//
+// Bridge reads: io_bridge_peripheral latches the address, samples bridge_rd_data a few clocks
+// later, then pulses bridge_rd; like core_bridge_cmd, the word for the address is latched on
+// that pulse (the RAM has been reading that address since it was latched).
+
+    wire    [15:0]  save_q;
+    reg     [31:0]  save_rd_data;
+    wire            save_sel = bridge_addr[31:28] == 4'h6;
+always @(posedge clk_74a) begin
+    if (bridge_rd && save_sel) save_rd_data <= {8'hFF, save_q[7:0], 8'hFF, save_q[15:8]};
+end
+
+// The save slot's size for the Pocket: data slot index 1 (the second entry in data.json), so
+// datatable word 1*2+1.
+assign datatable_addr = 10'd3;
+assign datatable_wren = 1'b1;
+assign datatable_data = 32'd65536;
+
+////////////////////////////////////////////////////////////////////////////////////////
 // Controls: Pocket pad -> Genesis pad (same layout as openFPGA-Genesis)
 //   Genesis A = Pocket Y, B = B, C = A, X = L, Y = X, Z = R, Start = Start, Mode = Select
 
@@ -591,6 +613,12 @@ s32x_system system (
     .rom_wr         ( rom_wr ),
     .rom_wr_addr    ( rom_wr_addr[23:0] ),
     .rom_wr_data    ( rom_wr_data ),
+
+    .save_clk       ( clk_74a ),
+    .save_a         ( bridge_addr[15:2] ),
+    .save_d         ( {bridge_wr_data[7:0], bridge_wr_data[23:16]} ),
+    .save_we        ( bridge_wr & save_sel ),
+    .save_q         ( save_q ),
 
     .joy_1          ( genesis_pad(cont1_key_s) ),
     .joy_2          ( genesis_pad(cont2_key_s) ),

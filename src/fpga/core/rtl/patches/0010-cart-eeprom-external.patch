@@ -1,0 +1,38 @@
+diff --git a/rtl/CART/cart.sv b/rtl/CART/cart.sv
+index 7c90528..4aeb1a6 100644
+--- a/rtl/CART/cart.sv
++++ b/rtl/CART/cart.sv
+@@ -35,7 +35,13 @@ module CART
+ 	input       [3:0] eeprom_map,
+ 	input             noram_quirk,
+ 	input             realtec_map,
+-	input       [2:0] sf_map					//[2] SRAM bank present, [1:0] 0:none,1:SF-001,2:SF-002,3:SF-004
++	input       [2:0] sf_map,					//[2] SRAM bank present, [1:0] 0:none,1:SF-001,2:SF-002,3:SF-004
++
++	// EEPROM storage (1 KB), external so it can be saved and restored
++	output      [9:0] EEPROM_A,
++	output      [7:0] EEPROM_D,
++	output            EEPROM_WE,
++	input       [7:0] EEPROM_Q
+ );
+ 
+ 	reg old_LWR_N, old_UWR_N;
+@@ -140,14 +146,10 @@ module CART
+ 		.ram_q(EEPROM_RAM_Q)
+ 	);
+ 	
+-	spram #(10,8) eeprom_ram
+-	(
+-		.clock(CLK),
+-		.address(EEPROM_RAM_A[9:0]),
+-		.data(EEPROM_RAM_D),
+-		.wren(EEPROM_RAM_WE),
+-		.q(EEPROM_RAM_Q)
+-	);
++	assign EEPROM_A = EEPROM_RAM_A[9:0];
++	assign EEPROM_D = EEPROM_RAM_D;
++	assign EEPROM_WE = EEPROM_RAM_WE;
++	assign EEPROM_RAM_Q = EEPROM_Q;
+ 	
+ 	//Realtec mapper
+ 	reg [21:17] REALTEC_BANK;

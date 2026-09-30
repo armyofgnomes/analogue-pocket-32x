@@ -148,7 +148,7 @@ Update the status column in the same commit that completes a requirement.
 
 | ID | Pri | Requirement | Verify | Status |
 |---|---|---|---|---|
-| REQ-SAVE-01 | P1 | Battery-backed SRAM / EEPROM carts saved to SD via APF save slot (nonvolatile data slot), loaded on start | HW | TODO |
+| REQ-SAVE-01 | P1 | Battery-backed SRAM / EEPROM carts saved to SD via APF save slot (nonvolatile data slot), loaded on start | HW | WIP: data slot 10 (`.sav`, 64 KB, MiSTer layout), cart SRAM and EEPROM storage in a dual-clock BRAM (`s32x_save_ram.sv`, patch 0010) served straight to the bridge; `sim/save_ram` passes; awaiting hardware test |
 | REQ-SAVE-02 | P1 | Saves survive power-off and core switch. No corruption on quick power cycles | HW | TODO |
 
 ## 13. Quality and testing (QA)

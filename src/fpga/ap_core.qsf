@@ -758,6 +758,7 @@ set_global_assignment -name SYSTEMVERILOG_FILE core/s32x_system.sv
 set_global_assignment -name SYSTEMVERILOG_FILE core/fb_sram.sv
 set_global_assignment -name SYSTEMVERILOG_FILE core/memtest.sv
 set_global_assignment -name SYSTEMVERILOG_FILE core/s32x_sdram_front.sv
+set_global_assignment -name SYSTEMVERILOG_FILE core/s32x_save_ram.sv
 set_global_assignment -name SYSTEMVERILOG_FILE core/rtl/agg23/data_loader.sv
 set_global_assignment -name SYSTEMVERILOG_FILE core/rtl/agg23/sound_i2s.sv
 set_global_assignment -name SYSTEMVERILOG_FILE core/rtl/agg23/sync_fifo.sv
@@ -789,6 +790,10 @@ set_instance_assignment -name FAST_INPUT_REGISTER ON -to sram_dq[*]
 # Keep fb_sram's clock-crossing input registers where they are (retiming moved them and broke hold)
 set_instance_assignment -name PHYSICAL_SYNTHESIS_REGISTER_RETIMING OFF -to "core_top:ic|s32x_system:system|fb_sram:fb_sram"
 set_instance_assignment -name PHYSICAL_SYNTHESIS_REGISTER_RETIMING OFF -to "core_top:ic|s32x_system:system|sdram:sdram"
+# The Z80 reads the cart bus (SDRAM port-1 data, launched on clk_ram) straight into its IR; retiming
+# pushed IR forward into the microcode decode and broke setup on that half-cycle path (-0.92 ns).
+# The Z80 runs on a 3.58 MHz clock enable and needs no retiming.
+set_instance_assignment -name PHYSICAL_SYNTHESIS_REGISTER_RETIMING OFF -to "core_top:ic|s32x_system:system|gen:gen|T80pa:Z80"
 # SDRAM pin registers in the I/O cells, as MiSTer's sys.tcl does for the same sdram.sv. Without
 # these the fitter places them freely and the (unconstrained) pin timing changes from build to
 # build: bc7ce5c, which turned retiming off above, blanked every game on hardware.

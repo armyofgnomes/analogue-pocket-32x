@@ -38,6 +38,7 @@ wire        SRAM_OE_N, SRAM_WE_N, SRAM_UB_N, SRAM_LB_N;
 s32x_system dut (
 	.clk_sys(clk_sys), .clk_ram(clk_ram), .pll_locked(pll_locked), .reset(reset),
 	.rom_loading(rom_loading), .rom_wr(rom_wr), .rom_wr_addr(rom_wr_addr), .rom_wr_data(rom_wr_data),
+	.save_clk(clk_sys), .save_a(14'd0), .save_d(16'd0), .save_we(1'b0), .save_q(),
 	.joy_1(12'd0), .joy_2(12'd0), .j3but(1'b1),
 	.r(r), .g(g), .b(b), .ce_pix(ce_pix), .hblank(hblank), .vblank(vblank), .hs_n(hs_n), .vs_n(vs_n),
 	.resolution(resolution), .interlace(interlace), .field(field), .pal(pal),
@@ -475,11 +476,25 @@ initial begin
 	reset = 0;
 end
 
+// Save RAM activity (cart SRAM accesses, EEPROM storage reads/writes)
+int n_sram_rd, n_sram_wr, n_eep_wr;
+reg sram_req_d;
+always @(posedge clk_sys) begin
+	sram_req_d <= dut.CART_SRAM_RD | dut.CART_SRAM_WR;
+	if (dut.CART_SRAM_RD & ~sram_req_d) n_sram_rd++;
+	if (dut.CART_SRAM_WR & ~sram_req_d) n_sram_wr++;
+	if (dut.CART_EEPROM_WE) begin
+		n_eep_wr++;
+		if (n_eep_wr <= 16) $display("%t EEPROM write [%03h] = %02h", $realtime, dut.CART_EEPROM_A, dut.CART_EEPROM_D);
+	end
+end
+
 // Progress report every ~5 ms of simulated time
 always begin
 	#(5ms);
-	$display("%t progress: frame %0d line %0d, 68K at %06h, SH-2 CS0 cycles M/S %0d/%0d, FB writes %0d, 32X SDRAM accesses %0d, FS=%b",
-	         $realtime, frame, y, {dut.gen.M68K_A, 1'b0}, n_msh_cs0, n_ssh_cs0, n_fb_wr, n_sdr, dut.FB_FS);
+	$display("%t progress: frame %0d line %0d, 68K at %06h, SH-2 CS0 cycles M/S %0d/%0d, FB writes %0d, 32X SDRAM accesses %0d, FS=%b, save RAM rd/wr %0d/%0d, EEPROM wr %0d",
+	         $realtime, frame, y, {dut.gen.M68K_A, 1'b0}, n_msh_cs0, n_ssh_cs0, n_fb_wr, n_sdr, dut.FB_FS,
+	         n_sram_rd, n_sram_wr, n_eep_wr);
 end
 
 endmodule

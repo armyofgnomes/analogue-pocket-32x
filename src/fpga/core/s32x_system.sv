@@ -1,8 +1,9 @@
 //
 // Console system: S32X_MiSTer's Genesis (gen) + 32X (S32X) + cartridge mapper (CART), with the
-// cart ROM, cart save RAM and 32X SDRAM in SDRAM (sdram.sv) and the 32X framebuffers in the async
-// SRAM (fb_sram.sv). Wiring follows upstream S32X.sv with s32x_rom = 1: like a real 32X, every
-// cart (32X or plain Genesis) goes through the 32X, which passes Genesis carts through.
+// cart ROM and 32X SDRAM in SDRAM (sdram.sv), the cart save RAM in block RAM (s32x_save_ram.sv)
+// and the 32X framebuffers in the async SRAM (fb_sram.sv). Wiring follows upstream S32X.sv with
+// s32x_rom = 1: like a real 32X, every cart (32X or plain Genesis) goes through the 32X, which
+// passes Genesis carts through.
 //
 // MEMTEST builds (tools/build.sh --memtest) leave the 32X out (GENESIS_ONLY) and let memtest.sv
 // drive the framebuffer SRAM and the 32X SDRAM port instead.
@@ -28,6 +29,13 @@ module s32x_system
 	input         rom_wr,         // one write per 16-bit word, file byte order
 	input  [23:0] rom_wr_addr,    // byte address
 	input  [15:0] rom_wr_data,    // [7:0] = byte at rom_wr_addr, [15:8] = next byte
+
+	// Save memory (cart SRAM / EEPROM), APF bridge side on its own clock; see s32x_save_ram.sv
+	input         save_clk,
+	input  [13:0] save_a,         // 32-bit word address in the 64 KB save file
+	input  [15:0] save_d,         // {byte at 4k+3, byte at 4k+1}
+	input         save_we,
+	output [15:0] save_q,
 
 	// Controls (clk_sys domain). MiSTer format, active high:
 	// [0] right [1] left [2] down [3] up [4] A [5] B [6] C [7] start [8] mode [9] X [10] Y [11] Z
@@ -219,6 +227,11 @@ wire        CART_ROM_WRL, CART_ROM_WRH, CART_ROM_RD;
 wire [14:0] CART_SRAM_A;
 wire  [7:0] CART_SRAM_DO;
 wire        CART_SRAM_WR, CART_SRAM_RD;
+wire  [7:0] CART_SRAM_DI;
+wire        CART_SRAM_BUSY;
+wire  [9:0] CART_EEPROM_A;
+wire  [7:0] CART_EEPROM_D, CART_EEPROM_Q;
+wire        CART_EEPROM_WE;
 
 wire [15:0] sdr_do[4];
 wire  [3:0] sdr_busy;
@@ -330,7 +343,7 @@ gen gen
 );
 
 assign GEN_MEM_BUSY = !GEN_RAS2_N                  ? 1'b0 :
-                      CART_SRAM_RD || CART_SRAM_WR ? sdr_busy[2] :
+                      CART_SRAM_RD || CART_SRAM_WR ? CART_SRAM_BUSY :
                                                      sdr_busy[1];
 
 // Genesis 9-bit color to 24-bit (same LUT as upstream S32X.sv)
@@ -467,7 +480,7 @@ S32X #(
 	.CCE0_N(S32X_CCE0_N),
 	.CCAS0_N(S32X_CCAS0_N),
 	.CCAS2_N(S32X_CCAS2_N),
-	.ROM_WAIT(CART_SRAM_RD || CART_SRAM_WR ? sdr_busy[2] : sdr_busy[1]),
+	.ROM_WAIT(CART_SRAM_RD || CART_SRAM_WR ? CART_SRAM_BUSY : sdr_busy[1]),
 
 	.SDR_A(S32X_SDR_A),
 	.SDR_DI(s32x_sdr_di),
@@ -619,7 +632,7 @@ CART cart
 	.ROM_WRH(CART_ROM_WRH),
 
 	.SRAM_A(CART_SRAM_A),
-	.SRAM_DI(sdr_do[2][7:0]),
+	.SRAM_DI(CART_SRAM_DI),
 	.SRAM_DO(CART_SRAM_DO),
 	.SRAM_RD(CART_SRAM_RD),
 	.SRAM_WR(CART_SRAM_WR),
@@ -633,7 +646,37 @@ CART cart
 	.eeprom_map(eeprom_map),
 	.noram_quirk(noram_quirk),
 	.realtec_map(realtec_map),
-	.sf_map(sf_map)
+	.sf_map(sf_map),
+
+	.EEPROM_A(CART_EEPROM_A),
+	.EEPROM_D(CART_EEPROM_D),
+	.EEPROM_WE(CART_EEPROM_WE),
+	.EEPROM_Q(CART_EEPROM_Q)
+);
+
+// Cart SRAM and EEPROM storage in block RAM, loaded and saved through the APF save slot
+s32x_save_ram save_ram
+(
+	.clk(clk_sys),
+
+	.sram_a(CART_SRAM_A),
+	.sram_d(CART_SRAM_DO),
+	.sram_rd(CART_SRAM_RD),
+	.sram_wr(CART_SRAM_WR),
+	.sram_q(CART_SRAM_DI),
+	.sram_busy(CART_SRAM_BUSY),
+
+	.eeprom_sel(|eeprom_map[2:0]),
+	.eeprom_a(CART_EEPROM_A),
+	.eeprom_d(CART_EEPROM_D),
+	.eeprom_we(CART_EEPROM_WE),
+	.eeprom_q(CART_EEPROM_Q),
+
+	.b_clk(save_clk),
+	.b_a(save_a),
+	.b_d(save_d),
+	.b_we(save_we),
+	.b_q(save_q)
 );
 
 // clk_ram (2x clk_sys, same PLL) samples clk_sys-domain requests only on the edge in mid clk_sys
@@ -730,10 +773,11 @@ sdram sdram
 	.dout1(sdr_do[1]),
 	.busy1(sdr_busy[1]),
 
-	.addr2({9'b110000000, CART_SRAM_A[14:0]}),
-	.rd2(CART_SRAM_RD),
-	.wr2({2{CART_SRAM_WR}}),
-	.din2({8'hFF, CART_SRAM_DO}),
+	// Port 2 (cart SRAM on MiSTer) is unused: cart SRAM is in s32x_save_ram
+	.addr2(24'd0),
+	.rd2(1'b0),
+	.wr2(2'b00),
+	.din2(16'd0),
 	.dout2(sdr_do[2]),
 	.busy2(sdr_busy[2]),
 

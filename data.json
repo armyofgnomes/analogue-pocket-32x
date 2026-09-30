@@ -14,6 +14,17 @@
                     "gen"
                 ],
                 "address": "0x10000000"
+            },
+            {
+                "id": 10,
+                "name": "Save",
+                "required": false,
+                "nonvolatile": true,
+                "parameters": "0x84",
+                "extensions": [
+                    "sav"
+                ],
+                "address": "0x60000000"
             }
         ]
     }
