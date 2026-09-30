@@ -66,6 +66,19 @@ Results go in `docs/test-log.md` (create on first test): date, build hash, Pocke
   output, memory controller behavior) should be proven there before costing the owner a
   hardware cycle.
 
+## Known-good test cases
+
+- **Pad test program:** `python3 sim/system/roms/make_padtest.py build/padtest.bin` builds a tiny
+  Genesis program (our own code) that reads pad 1 like 6-button games do and colors the screen:
+  gray = no 6-button pad, black = detected, red/green/blue = X/Y/Z (Pocket L/X/R), white = Mode
+  (Select). Load it like any ROM. It also runs in `sim/system` (`+pad6 +joy1=<hex>`).
+- **6-button games:** many (e.g. fighting games) only use X/Y/Z after enabling the 6-button pad in
+  their own options menu, so "X/Y/Z do nothing" in a game is not by itself a core bug.
+- **Region:** Mystic Defender shows visible differences between regions. Europe also runs games
+  and music about 17% slower (50 Hz timing).
+- **Saves:** Knuckles' Chaotix (32X) and Sonic 3 (Genesis) for battery SRAM; Mega Man: The Wily
+  Wars and NBA Jam TE for EEPROM.
+
 ## Multiple Pockets
 
 Marginal timing often shows up on only one unit. For milestone builds and anything

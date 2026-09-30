@@ -70,7 +70,7 @@ Update the status column in the same commit that completes a requirement.
 | REQ-APF-03b | P2 | BIOS loaded at runtime from data slots instead (68K, master SH-2, slave SH-2 in `Assets/<platform>/common/`), with a visible error if missing. Needed only if the core is ever shared publicly | HW | TODO |
 | REQ-APF-04 | P0 | Bridge-driven loading: data-slot writes land in the correct external memory / BRAM, with core held in reset until loading completes (`dataslot_allcomplete`) | HW | DONE |
 | REQ-APF-05 | P0 | Replace template `icon.bin` and `info.txt` with project-specific content | HW | TODO |
-| REQ-APF-06 | P1 | `interact.json` settings: region (auto/US/EU/JP), 6-button pad toggle, audio options (FM chip variant, lowpass), video options (border, composite blending), reset. Values wired through the bridge | HW | WIP: `interact.json` has reset, region (auto/US/JP/EU; a change resets the game), 6-button pad, audio filter (Model 1/Model 2/minimal/none), FM chip (YM2612/YM3438), HiFi PCM, composite blend and high sprite limit, written over the bridge to registers in `core_top.v`. Border left out: it changes the active picture size, which the fixed scaler modes can't follow. Awaiting hardware test |
+| REQ-APF-06 | P1 | `interact.json` settings: region (auto/US/EU/JP), 6-button pad toggle, audio options (FM chip variant, lowpass), video options (border, composite blending), reset. Values wired through the bridge | HW | DONE (7005332, aa35ca0): `interact.json` has reset, region (auto/US/JP/EU; a change resets the game), 6-button pad (a change resets the game), audio filter (Model 1/Model 2/minimal/none), FM chip (YM2612/YM3438), HiFi PCM, composite blend and high sprite limit, written over the bridge to registers in `core_top.v`. All verified on hardware. Border left out: it changes the active picture size, which the fixed scaler modes can't follow |
 | REQ-APF-07 | P1 | Optional Genesis TMSS BIOS slot (off by default) | HW | TODO |
 | REQ-APF-08 | P2 | Sleep/wake and save states (`sleep_supported`, Pocket "Memories"). Large state: 256 KB SDRAM + 256 KB framebuffer + Genesis state, and every internal register of both CPUs, both VDPs and the SH-2 peripherals (upstream has no save-state support). **Optional research item, last:** owner's priority order (2026-09-29) is M5, then saves (REQ-SAVE-01/02), then the remaining requirements | HW | TODO |
 
@@ -126,7 +126,7 @@ Update the status column in the same commit that completes a requirement.
 | REQ-VID-03 | P0 | Correct color: Genesis 9-bit → 24-bit LUT, 32X 15-bit → 24-bit | HW | WIP |
 | REQ-VID-04 | P1 | Interlace mode 2 (e.g. Sonic 2 2P) handled sensibly | HW | TODO |
 | REQ-VID-05 | P1 | Dock output verified (HDMI via Analogue Dock), correct aspect ratio | HW | TODO |
-| REQ-VID-06 | P2 | Optional border/overscan and composite-blend options | HW | WIP: composite blend setting (upstream `cofi`); border not planned (see REQ-APF-06) |
+| REQ-VID-06 | P2 | Optional border/overscan and composite-blend options | HW | DONE: composite blend setting (upstream `cofi`), verified on hardware; border not planned (see REQ-APF-06) |
 
 ## 10. Audio (AUD)
 
@@ -134,7 +134,7 @@ Update the status column in the same commit that completes a requirement.
 |---|---|---|---|---|
 | REQ-AUD-01 | P0 | YM2612 + PSG + PWM mixed with sane relative levels and no clipping | HW | WIP |
 | REQ-AUD-02 | P0 | Resampled/delivered as 48 kHz I2S to the Pocket (`audio_mclk` 12.288 MHz) without pops, drift or underrun | HW | WIP |
-| REQ-AUD-03 | P1 | Low-pass filter option (Model 1/Model 2 style) | HW | WIP: Audio Filter setting (REQ-APF-06), awaiting hardware test |
+| REQ-AUD-03 | P1 | Low-pass filter option (Model 1/Model 2 style) | HW | DONE: Audio Filter setting (REQ-APF-06), verified on hardware |
 
 ## 11. Input (INP)
 
