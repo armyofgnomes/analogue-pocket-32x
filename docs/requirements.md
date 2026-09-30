@@ -22,7 +22,7 @@ Update the status column in the same commit that completes a requirement.
 | **M2: Genesis on Pocket** ✅ 2026-09-28 | The Genesis half of the system runs, from the S32X codebase with 32X disabled | Several Genesis games boot and play with sound and input |
 | **M3: 32X memory subsystem** ✅ 2026-09-28 (memory; BIOS embedding verified in M4) | Framebuffers, 32X SDRAM and BIOS live in Pocket memory | Memory test patterns pass on HW. BIOS present (embedded is fine) |
 | **M4: 32X boots** ✅ 2026-09-29 (commercial games boot and play: Kolibri, Doom, Pitfall, Virtua Fighter, Spider-Man, Primal Rage) | Both SH-2s run BIOS code | 32X BIOS/security screen shown. A simple 32X homebrew/test ROM runs |
-| **M5: Games playable** (in progress: Kolibri, Doom, Chaotix, Pitfall, Virtua Fighter, Spider-Man, Primal Rage play; open: NBA Jam TE vertical bars, Primal Rage logo offset in H32) | Commercial 32X library playable | Test-matrix games (REQ-QA-03) boot and play with correct video/audio |
+| **M5: Games playable** (in progress: most titles tested play: Kolibri, Doom, Chaotix, NBA Jam TE, Pitfall, Primal Rage, Spider-Man, Virtua Fighter and a wider set; open: After Burner Complete seems to lack its weapon-fire sound, other audio fine) | Commercial 32X library playable | Test-matrix games (REQ-QA-03) boot and play with correct video/audio |
 | **M6: Polish** | Saves, settings, PAL, dock, accuracy fixes | P1 requirements done |
 | **M7: Release (optional)** | Public release, only if BIOS is runtime-loaded | REQ-APF-03b and REQ-DIST-* done |
 
