@@ -143,6 +143,7 @@ Update the status column in the same commit that completes a requirement.
 | REQ-INP-01 | P0 | Pocket controls → Genesis 3-button pad (A/B/C/Start) via `input.json` mapping | HW | DONE |
 | REQ-INP-02 | P0 | 6-button pad (X/Y/Z/Mode) with correct TH-toggle protocol. Toggle for games that break with 6-button | HW | DONE (aa35ca0): upstream pad protocol, 6-Button Pad setting (off by default; X/Y/Z/Mode on Pocket L/X/R/Select). Verified with the pad test program and games that enable 6-button mode in their options |
 | REQ-INP-03 | P1 | Player 2 via Dock controllers | HW | DONE: controller 2 (`cont2_key`) drives the Genesis port 2 pad; verified with a second controller on the Dock |
+| REQ-INP-04 | P2 | 3-4 players via Dock controllers: Sega Team Player / EA 4-Way Play multitap (upstream implements both; tied off today). 32X games: NBA Jam TE and WWF Raw (NFL Quarterback Club unconfirmed), plus many Genesis games | HW | TODO (only on request: niche, owner's call 2026-09-30) |
 
 ## 12. Saves (SAVE)
 

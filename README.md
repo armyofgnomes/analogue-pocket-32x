@@ -32,6 +32,9 @@ Version history: [`CHANGELOG.md`](CHANGELOG.md).
   PAL picture modes, and Super Street Fighter II's cartridge banking.
 - **No save states (Memories)** or sleep: they don't fit the Pocket's FPGA alongside the 32X
   (measured in [`experiments/memories/`](experiments/memories/README.md)).
+- **Two players only:** no Team Player / 4-Way Play multitap, so 4-player modes (e.g. NBA Jam TE
+  and WWF Raw on 32X, various Genesis games) aren't available. Upstream has the logic; open an
+  issue if you'd like it.
 - Untested 32X games are listed in [`docs/game-matrix.md`](docs/game-matrix.md).
 
 ## Using a build
