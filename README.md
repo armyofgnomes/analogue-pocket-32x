@@ -93,13 +93,13 @@ docs/                       requirements, architecture, hardware test log, debug
 
 ## How this core was made
 
-I'm a programmer, but I had never worked on an FPGA core before this project. All of the code
-and documentation in this repository was written with [Claude Code](https://claude.com/claude-code),
-Anthropic's AI coding assistant, building on the MiSTer S32X core and Analogue's openFPGA
-framework (see Credits). My part was deciding what to build and in what order, and testing: every
-build was tested on real Analogue Pockets and the Dock, and there was a lot of back and forth
-(reporting what broke, trying fixes, retesting) before games ran correctly. The hardware test
-history is in [`docs/test-log.md`](docs/test-log.md).
+I'm a programmer, but I had never worked on an FPGA core before this project. However, I really
+wanted a 32x core for the Pocket (mainly to play Kolibri). All of the code and documentation
+in this repository was written with [Claude Code](https://claude.com/claude-code),
+building on the MiSTer S32X core and Analogue's openFPGA framework (see Credits). My part was
+deciding what to build and in what order, and testing: every build was tested on real Analogue
+Pockets and the Dock, and there was a lot of back and forth (reporting what broke, trying fixes,
+retesting, etc.) before games ran correctly. The hardware test history is in [`docs/test-log.md`](docs/test-log.md).
 
 ## Credits
 
