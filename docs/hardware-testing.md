@@ -15,8 +15,8 @@ Pocket openFPGA cores are loaded from the SD card root. Replace `<Author>`, `<Co
     info.txt icon.bin
 /Platforms/<platform>.json
 /Platforms/_images/<platform>.bin
-/Assets/<platform>/common/          ← game ROMs (.32x) go here or any subfolder
-                                      (plus BIOS files only if REQ-APF-03b is ever done)
+/Assets/<platform>/common/          ← game ROMs (.32x) go here or any subfolder, and the
+                                      BIOS files 32X_G_BIOS.BIN, 32X_M_BIOS.BIN, 32X_S_BIOS.BIN
 /Saves/<platform>/...               ← created by the Pocket for save data
 ```
 

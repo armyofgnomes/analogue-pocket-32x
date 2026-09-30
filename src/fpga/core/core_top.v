@@ -545,6 +545,32 @@ data_loader #(
 );
 
 ////////////////////////////////////////////////////////////////////////////////////////
+// 32X BIOS loading (data slots 20-22 at bridge address 0x20000000, see data.json): the BIOS
+// isn't built into the bitstream (REQ-APF-03b). Master SH-2 BIOS at +0x0000 (2 KB), slave at
+// +0x0800 (1 KB), 68K BIOS at +0x1000 (256 B). Loaded with the ROM, while the console is held
+// in reset.
+
+    wire            bios_wr;
+    wire    [27:0]  bios_wr_addr;
+    wire    [15:0]  bios_wr_data;
+data_loader #(
+    .ADDRESS_MASK_UPPER_4       ( 4'h2 ),
+    .ADDRESS_SIZE               ( 28 ),
+    .WRITE_MEM_CLOCK_DELAY      ( 4 ),
+    .OUTPUT_WORD_SIZE           ( 2 )
+) bios_loader (
+    .clk_74a                ( clk_74a ),
+    .clk_memory             ( clk_sys ),
+    .bridge_wr              ( bridge_wr ),
+    .bridge_endian_little   ( bridge_endian_little ),
+    .bridge_addr            ( bridge_addr ),
+    .bridge_wr_data         ( bridge_wr_data ),
+    .write_en               ( bios_wr ),
+    .write_addr             ( bios_wr_addr ),
+    .write_data             ( bios_wr_data )
+);
+
+////////////////////////////////////////////////////////////////////////////////////////
 // Save data (non-volatile data slot 10 at bridge address 0x60000000, see data.json)
 // The 64 KB save file is loaded while the ROM loads (the console is held in reset until every
 // slot is done) and read back by the Pocket when the game is closed. It lives in the console's
@@ -665,6 +691,11 @@ s32x_system system (
     .rom_wr         ( rom_wr ),
     .rom_wr_addr    ( rom_wr_addr[23:0] ),
     .rom_wr_data    ( rom_wr_data ),
+
+    // Loader words are file byte order ([7:0] = byte at the address); BIOS words are big-endian
+    .bios_wr        ( bios_wr & rom_loading ),
+    .bios_wr_addr   ( bios_wr_addr[12:1] ),
+    .bios_wr_data   ( {bios_wr_data[7:0], bios_wr_data[15:8]} ),
 
     .save_clk       ( clk_74a ),
     .save_a         ( bridge_addr[15:2] ),

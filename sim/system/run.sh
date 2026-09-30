@@ -31,7 +31,12 @@ if [ "${SKIP_COMPILE:-0}" != 1 ]; then
     vhd=$(echo "$list" | awk '$1=="vcom"{print "'"$repo"'/"$2}')
     "$Q/vcom" -quiet -2008 -autoorder $vhd
     vl=$(echo "$list" | awk '$1=="vlog"{print "'"$repo"'/"$2}')
-    "$Q/vlog" -sv -quiet -suppress 2244,2388 ${VLOG_DEFS:-} -L altera_mf_ver $vl \
+    # BIOS_MIF: the BIOS memories start from core/bios_mif/*.mif (the hardware loads them from the
+# SD card instead). BIOS_LOAD=1 leaves them empty and tb_system loads them through the core's
+# BIOS loading port, as the Pocket does.
+    bios_def="+define+BIOS_MIF"
+    [ "${BIOS_LOAD:-0}" = 1 ] && bios_def=""
+    "$Q/vlog" -sv -quiet -suppress 2244,2388 $bios_def ${VLOG_DEFS:-} -L altera_mf_ver $vl \
         "$work/ddram_sim.sv" "$repo/sim/common/sdram_model.sv" "$repo/sim/system/tb_system.sv"
 fi
 flock -u 9

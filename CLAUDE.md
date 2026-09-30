@@ -70,13 +70,12 @@ src/fpga/core/core_bridge_cmd.v                   Host/target command handler (d
   SDRAM controller that end up in every bitstream.
 - **Never commit copyrighted ROMs or BIOS images** to git, including `.mif`/`.hex` BIOS
   embeds that some upstream cores ship with. Pushing them to GitHub counts as distributing them.
-- BIOS policy: the owner is fine with a personal-use-only core. **Embedding the BIOS in the
-  bitstream is allowed** for personal builds. It's the fastest path to first boot. The
-  BIOS files must live in a gitignored local directory (`bios/`) and get pulled in at build
-  time: `bios/32X_G_BIOS.BIN` (68K, 256 B), `bios/32X_M_BIOS.BIN` (master SH-2, 2 KB) and
-  `bios/32X_S_BIOS.BIN` (slave SH-2, 1 KB). `tools/gen_bios_mif.py` turns them into gitignored
-  `.mif` files at build time. Loading the BIOS from APF data slots, which keeps the bitstream shareable, is the
-  preferred end state but isn't required. See REQ-APF-03 / REQ-LEGAL-03.
+- BIOS policy: the bitstream contains **no BIOS**. The core loads the three BIOS files from the
+  SD card through required data slots (`data.json` ids 20-22, `Assets/32x/common/`:
+  `32X_G_BIOS.BIN` 68K 256 B, `32X_M_BIOS.BIN` master SH-2 2 KB, `32X_S_BIOS.BIN` slave SH-2
+  1 KB), written into the BIOS memories by patch 0011's load port (REQ-APF-03b). The simulations
+  still preload them: local dumps in the gitignored `bios/` become gitignored `.mif` files
+  (`tools/gen_bios_mif.py`, `BIOS_MIF` define). See REQ-APF-03 / REQ-LEGAL-03.
 - Mixed-language HDL is fine (Quartus handles Verilog, SystemVerilog and VHDL together).
   Upstream code keeps its original language.
 - Clock domains: the APF bridge (`bridge_*`) runs on `clk_74a`. Anything crossing into the
@@ -103,7 +102,7 @@ memory self-test variant (REQ-MEM-06).
 
 1. Compile: `cd src/fpga && quartus_sh --flow compile ap_core` (or open `ap_core.qpf` in the
    GUI). Output: `src/fpga/output_files/ap_core.rbf`. The pre-flow hook patches the upstream
-   submodule and generates the BIOS `.mif` files.
+   submodule.
 2. `tools/reverse_bits.py` bit-reverses each byte of the `.rbf` into `output/bitstream.rbf_r`,
    the format the Pocket requires.
 3. `tools/package.py [--zip]` stages an SD-card tree in `build/sdcard/` (layout per

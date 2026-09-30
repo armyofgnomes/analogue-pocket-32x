@@ -30,6 +30,12 @@ module s32x_system
 	input  [23:0] rom_wr_addr,    // byte address
 	input  [15:0] rom_wr_data,    // [7:0] = byte at rom_wr_addr, [15:8] = next byte
 
+	// 32X BIOS loading (clk_sys, while rom_loading): word address [12] = 1 68K BIOS (128 words),
+	// else the SH-2 image (master at word 0, slave at word 1024); big-endian 16-bit words
+	input         bios_wr,
+	input  [12:1] bios_wr_addr,
+	input  [15:0] bios_wr_data,
+
 	// Save memory (cart SRAM / EEPROM), APF bridge side on its own clock; see s32x_save_ram.sv
 	input         save_clk,
 	input  [13:0] save_a,         // 32-bit word address in the 64 KB save file
@@ -463,6 +469,10 @@ S32X #(
 (
 	.RST_N(~sys_reset),
 	.CLK(clk_sys),
+
+	.BIOS_WE(bios_wr),
+	.BIOS_A(bios_wr_addr),
+	.BIOS_D(bios_wr_data),
 
 	.VCLK(GEN_VCLK_CE),
 	.VA(GEN_VA),

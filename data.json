@@ -25,6 +25,42 @@
                     "sav"
                 ],
                 "address": "0x60000000"
+            },
+            {
+                "id": 20,
+                "name": "68K BIOS",
+                "required": true,
+                "filename": "32X_G_BIOS.BIN",
+                "parameters": "0x0",
+                "extensions": [
+                    "bin"
+                ],
+                "size_exact": 256,
+                "address": "0x20001000"
+            },
+            {
+                "id": 21,
+                "name": "Master SH-2 BIOS",
+                "required": true,
+                "filename": "32X_M_BIOS.BIN",
+                "parameters": "0x0",
+                "extensions": [
+                    "bin"
+                ],
+                "size_exact": 2048,
+                "address": "0x20000000"
+            },
+            {
+                "id": 22,
+                "name": "Slave SH-2 BIOS",
+                "required": true,
+                "filename": "32X_S_BIOS.BIN",
+                "parameters": "0x0",
+                "extensions": [
+                    "bin"
+                ],
+                "size_exact": 1024,
+                "address": "0x20000800"
             }
         ]
     }

@@ -12,7 +12,8 @@ memories, clocks, video and the Analogue Pocket Framework (APF).
   Pitfall, Primal Rage, Spider-Man: Web of Fire and Virtua Fighter (see
   [`docs/test-log.md`](docs/test-log.md)). The current milestone (M5) is the rest of the library.
 - Cartridge saves (battery SRAM and EEPROM) are kept in `.sav` files, in MiSTer's format.
-- No settings menu or PAL timing yet.
+- Settings: region, 6-button pad, audio filter, FM chip, HiFi PCM, composite blend, sprite limit, reset.
+- No PAL timing yet: European games run about 1% fast.
 
 Progress, requirements and hardware test results are tracked in [`docs/`](docs/):
 [`requirements.md`](docs/requirements.md) (milestones), [`test-log.md`](docs/test-log.md)
@@ -21,8 +22,8 @@ investigation) and [`architecture.md`](docs/architecture.md) (memory map, timing
 
 ## Using a build
 
-The 32X boot ROMs (BIOS) are **embedded in the bitstream** at build time. A build therefore
-contains copyrighted Sega code and must not be shared; build it yourself from your own BIOS dumps.
+The core needs the three 32X boot ROMs (BIOS), which you supply from your own dumps. It loads
+them from the SD card when a game starts; nothing from Sega is built into the bitstream.
 
 Copy the contents of `build/sdcard/` (produced by `tools/build.sh`) to the root of the Pocket's SD
 card. That adds:
@@ -34,6 +35,10 @@ Platforms/_images/32x.bin   platform image
 Assets/32x/common/          put your ROMs here
 ```
 
+Put the BIOS files in `Assets/32x/common/` too, named exactly `32X_G_BIOS.BIN` (68K, 256 bytes),
+`32X_M_BIOS.BIN` (master SH-2, 2 KB) and `32X_S_BIOS.BIN` (slave SH-2, 1 KB). If one is missing,
+the Pocket reports it when you load a game.
+
 ROMs: `.32x` for 32X games, `.md`, `.bin` or `.gen` for Genesis games. Load them from the core's
 menu on the Pocket.
 
@@ -44,8 +49,8 @@ Requirements:
 - Intel Quartus Prime Lite (built with 25.1std; the Cyclone V device support is needed)
 - Python 3
 - git (the upstream core is a submodule: `git submodule update --init`)
-- Your own 32X BIOS dumps in `bios/` (gitignored): `32X_G_BIOS.BIN` (68K, 256 bytes),
-  `32X_M_BIOS.BIN` (master SH-2, 2 KB), `32X_S_BIOS.BIN` (slave SH-2, 1 KB)
+- For the full-system simulations only: your own BIOS dumps in `bios/` (gitignored), same names
+  as above. The bitstream build doesn't need them.
 
 Then:
 
@@ -54,9 +59,8 @@ tools/build.sh            # compile, bit-reverse the bitstream, stage build/sdca
 tools/build.sh --memtest  # memory self-test build (bars over the Genesis picture)
 ```
 
-The build applies our patches to the upstream submodule (`tools/prepare_upstream.sh`), turns the
-BIOS files into memory init files (`tools/gen_bios_mif.py`), compiles with Quartus, reverses the
-bit order for the Pocket (`tools/reverse_bits.py`) and stages the SD card tree
+The build applies our patches to the upstream submodule (`tools/prepare_upstream.sh`), compiles
+with Quartus, reverses the bit order for the Pocket (`tools/reverse_bits.py`) and stages the SD card tree
 (`tools/package.py`). See [`CLAUDE.md`](CLAUDE.md) for details.
 
 ## Simulation

@@ -21,6 +21,9 @@ reg reset = 1;
 reg rom_loading = 0, rom_wr = 0;
 reg [23:0] rom_wr_addr = 0;
 reg [15:0] rom_wr_data = 0;
+reg        bios_wr = 0;
+reg [12:1] bios_wr_addr = 0;
+reg [15:0] bios_wr_data = 0;
 
 wire [7:0] r, g, b;
 wire ce_pix, hblank, vblank, hs_n, vs_n, interlace, field, pal;
@@ -43,6 +46,7 @@ initial void'($value$plusargs("joy1=%h", joy1));
 s32x_system dut (
 	.clk_sys(clk_sys), .clk_ram(clk_ram), .pll_locked(pll_locked), .reset(reset),
 	.rom_loading(rom_loading), .rom_wr(rom_wr), .rom_wr_addr(rom_wr_addr), .rom_wr_data(rom_wr_data),
+	.bios_wr(bios_wr), .bios_wr_addr(bios_wr_addr), .bios_wr_data(bios_wr_data),
 	.save_clk(clk_sys), .save_a(14'd0), .save_d(16'd0), .save_we(1'b0), .save_q(),
 	.joy_1(joy1), .joy_2(12'd0), .j3but(!pad6),
 	.region_sel(2'd0), .lpf_mode(2'd0), .fm_ym3438(1'b0), .hifi_pcm(1'b0), .sprite_high(1'b0),
@@ -109,6 +113,55 @@ task automatic loader_write(input bit [23:0] a);
 	@(posedge clk_sys);
 	rom_wr <= 0;
 	repeat (16) @(posedge clk_sys);
+endtask
+
+// BIOS memory read signature: every (address, data) pair the BIOS memories return, in order
+// (each new address, data one clock later), folded into a checksum. Runs with the BIOS preloaded
+// (BIOS_MIF) and loaded through the port (BIOS_LOAD=1) must print the same values.
+int n_shrom, n_mdrom, sig_len = 100000;     // +sig_len=<n>
+initial void'($value$plusargs("sig_len=%d", sig_len));
+bit [31:0] sig_shrom, sig_mdrom;
+reg [10:0] shrom_a_d = 0;
+reg  [6:0] mdrom_a_d = 0;
+always @(posedge clk_sys) begin
+	shrom_a_d <= dut.S32X.s32x_if.shrom.address;
+	mdrom_a_d <= dut.S32X.s32x_if.mdrom.address;
+	if (shrom_a_d != dut.S32X.s32x_if.shrom.address && !reset && n_shrom < sig_len) begin
+		n_shrom++;
+		sig_shrom = sig_shrom * 32'd1000003 ^ {5'd0, dut.S32X.s32x_if.shrom.address, dut.S32X.s32x_if.shrom.q};
+		if (n_shrom == sig_len) $display("BIOS read signature: SH-2 first %0d reads %08h", sig_len, sig_shrom);
+	end
+	if (mdrom_a_d != dut.S32X.s32x_if.mdrom.address && !reset && n_mdrom < sig_len) begin
+		n_mdrom++;
+		sig_mdrom = sig_mdrom * 32'd1000003 ^ {9'd0, dut.S32X.s32x_if.mdrom.address, dut.S32X.s32x_if.mdrom.q};
+		if (n_mdrom == sig_len) $display("BIOS read signature: 68K first %0d reads %08h", sig_len, sig_mdrom);
+	end
+end
+final $display("BIOS reads at the end: SH-2 %0d, 68K %0d (signature length %0d)", n_shrom, n_mdrom, sig_len);
+
+// BIOS loading through the core's loading port, as the Pocket does (BIOS_LOAD=1: into empty
+// memories; otherwise over the BIOS_MIF preload), from the .mif contents (FAST_BIOS patches
+// included). Word address: [12] = 1 68K BIOS, else the SH-2 image.
+task automatic bios_load_mif(input string path, input bit md);
+	int fd, n = 0;
+	string line;
+	bit [15:0] a, d;
+	fd = $fopen(path, "r");
+	if (!fd) begin $display("ERROR: can't open %s", path); $finish; end
+	while (!$feof(fd)) begin
+		void'($fgets(line, fd));
+		if ($sscanf(line, " %h : %h;", a, d) == 2) begin
+			@(posedge clk_sys);
+			bios_wr_addr <= md ? {1'b1, 4'd0, a[6:0]} : {1'b0, a[10:0]};
+			bios_wr_data <= d;
+			bios_wr <= 1;
+			@(posedge clk_sys);
+			bios_wr <= 0;
+			n++;
+		end
+	end
+	$fclose(fd);
+	$display("BIOS_LOAD: %0d words from %s", n, path);
 endtask
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -488,6 +541,10 @@ initial begin
 
 	// Header region (0x100-0x1FF) and the last word through the real loader
 	rom_loading = 1;
+	// Always through the port, so both variants have the same timing: BIOS_MIF runs rewrite the
+	// preloaded contents with the same data, BIOS_LOAD=1 runs start from empty memories.
+	bios_load_mif("core/bios_mif/mdbios.mif", 1);
+	bios_load_mif("core/bios_mif/shbios.mif", 0);
 	for (int a = 'h100; a < 'h200; a += 2) loader_write(a);
 	loader_write(rom_size - 2);
 	rom_loading = 0;
