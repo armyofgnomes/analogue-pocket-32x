@@ -288,6 +288,32 @@ baseline's.
 - The SH-2 path at MCLK with 3/7 clock enables is the tightest timing path in the MiSTer
   core. Expect timing-closure work on the Pocket's speed grade 8 part.
 
+### As built (REQ-ARCH-05)
+
+| Clock | Frequency | Source | Used by |
+|---|---|---|---|
+| `clk_74a` | 74.25 MHz | Pocket oscillator | APF bridge, loaders, settings registers, save RAM port B, audio I2S |
+| `clk_sys` | 53.693 MHz (MCLK, NTSC) | `pll_core` | Genesis, 32X, cart, clock enables, save RAM port A |
+| `clk_ram` | 107.386 MHz (2× MCLK) | `pll_core` | `sdram.sv`, `fb_sram.sv` request sampling |
+| `clk_vid` / `clk_vid_90` | 26.847 MHz (MCLK/2), +90° | `pll_core` | Video output to the scaler |
+| `audio_mclk` | ~12.288 MHz | `sound_i2s` (from `clk_74a`) | Pocket audio codec |
+
+`clk_sys`, `clk_ram` and `clk_vid` come from one PLL and are timed as related clocks. They are
+all declared asynchronous to `clk_74a` in `core_constraints.sdc`. PAL MCLK (REQ-ARCH-06) is
+not implemented: PAL games run on the NTSC MCLK, about 1% fast.
+
+Clock-domain crossings:
+
+- `clk_74a` → `clk_sys`: ROM loader (agg23 `data_loader`, dual-clock FIFO); `reset_n`, PLL
+  lock, `rom_loading`, controller keys and settings through `synch_3` (all quasi-static);
+  save data through the dual-clock save RAM (the console is held in reset while it loads).
+- `clk_sys` → `clk_74a`: audio samples into `sound_i2s`; save data read by the bridge from
+  the save RAM's second port.
+- `clk_sys` ↔ `clk_ram` (2×, same PLL): requests sampled on the clk_ram edge in the middle
+  of the clk_sys cycle (patch 0007, `fb_sram.sv`), with a multicycle hold in the SDC.
+- `clk_sys` → `clk_vid` (MCLK/2, same PLL): pixels latched in clk_sys and flagged with a
+  toggle; ordinary synchronous paths.
+
 ### Toolchain
 
 - **Quartus Prime Lite 25.1std.0 Build 1129** (Linux), with Cyclone V device support only.
