@@ -35,6 +35,9 @@ Version history: [`CHANGELOG.md`](CHANGELOG.md).
   PAL picture modes, and Super Street Fighter II's cartridge banking.
 - **No save states (Memories)** or sleep: they don't fit the Pocket's FPGA alongside the 32X
   (measured in [`experiments/memories/`](experiments/memories/README.md)).
+- **No Sega CD 32X games** (Night Trap, Corpse Killer and the other four): the Sega CD hardware
+  doesn't fit alongside the 32X in the Pocket's FPGA (measured in
+  [`experiments/segacd32x/`](experiments/segacd32x/README.md)).
 - **Two players only:** no Team Player / 4-Way Play multitap, so 4-player modes (e.g. NBA Jam TE
   and WWF Raw on 32X, various Genesis games) aren't available. Upstream has the logic; open an
   issue if you'd like it.
@@ -111,7 +114,7 @@ src/fpga/                   Quartus project (Cyclone V 5CEBA4F23C8)
   core/rtl/patches/         our patches to upstream, with a README for each
 tools/                      build, release, packaging and helper scripts (images, message ROM)
 sim/                        testbenches and the regression script
-experiments/                fit experiment, parked PAL clock switching, Memories study
+experiments/                fit experiment, parked PAL clock switching, Memories and Sega CD studies
 docs/                       requirements, architecture, game matrix, hardware testing, debug notes
 ```
 

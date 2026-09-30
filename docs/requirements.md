@@ -179,7 +179,9 @@ bitstream), so publishing needs these plus a look at the upstream licensing (arc
 
 ## Explicitly out of scope (for now)
 
-- Mega CD + 32X combo (32X CD games). Revisit only if resources allow after 1.0.
+- Mega CD + 32X combo (32X CD games): measured not feasible (2026-09-30). The Sega CD block alone
+  needs 5,079 ALMs (~1,460 free) and 2.83 Mbit of block RAM, which doesn't fit the device even on
+  its own; see `experiments/segacd32x/README.md`.
 - Physical cartridge adapter support (the Pocket's cart slot can't take Genesis carts without
   a custom adapter).
 - Link cable / multiplayer between Pockets.

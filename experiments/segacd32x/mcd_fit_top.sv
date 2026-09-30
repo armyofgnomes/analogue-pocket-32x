@@ -1,0 +1,55 @@
+// Fit experiment: MiSTer MegaCD's Sega CD block (MCD: sub-68000, graphics ASIC, CDC, PCM, CD-DA)
+// alone, every port on a virtual pin, to measure its logic and block RAM on the Pocket's FPGA.
+// Cheats (Game Genie) are tied off, as they are in our core.
+module mcd_fit_top (
+    input             clk,
+    input             rst_n,
+    input             palsw,
+    input      [17:1] ext_va,
+    input      [15:0] ext_vdi,
+    output     [15:0] ext_vdo,
+    input             ext_as_n, ext_rnw, ext_lds_n, ext_uds_n, ext_asel_n, ext_vclk_ce,
+    input             ext_ras2_n, ext_rom_n, ext_fdc_n,
+    output            ext_dtack_n, mcd_rst_n,
+    output     [17:0] prg_a,
+    input      [15:0] prg_di,
+    output     [15:0] prg_do,
+    output            prg_wrl_n, prg_wrh_n, prg_oe_n, prg_rfs,
+    input             prg_rdy,
+    input      [15:0] rom_di,
+    output            rom_ce_n,
+    input             rom_rdy,
+    output     [13:1] bram_a,
+    input       [7:0] bram_di,
+    output      [7:0] bram_do,
+    output            bram_we,
+    input      [39:0] cdd_stat,
+    output     [39:0] cdd_comm,
+    output            cdd_send,
+    input             cdd_rec, cdd_dm,
+    input      [15:0] cdc_data,
+    input             cdc_dat_wr, cdc_sc_wr, cdc_cdda_wr,
+    output            cdda_wr_ready,
+    output     [15:0] pcm_sl, pcm_sr, cdda_sl, cdda_sr,
+    output            led_red, led_green
+);
+    MCD mcd (
+        .CLK(clk), .RST_N(rst_n), .ENABLE(1'b1), .MCD_RST_N(mcd_rst_n), .PALSW(palsw),
+        .EXT_VA(ext_va), .EXT_VDI(ext_vdi), .EXT_VDO(ext_vdo), .EXT_AS_N(ext_as_n),
+        .EXT_RNW(ext_rnw), .EXT_LDS_N(ext_lds_n), .EXT_UDS_N(ext_uds_n),
+        .EXT_DTACK_N(ext_dtack_n), .EXT_ASEL_N(ext_asel_n), .EXT_VCLK_CE(ext_vclk_ce),
+        .EXT_RAS2_N(ext_ras2_n), .EXT_ROM_N(ext_rom_n), .EXT_FDC_N(ext_fdc_n),
+        .PRG_A(prg_a), .PRG_DI(prg_di), .PRG_DO(prg_do), .PRG_WRL_N(prg_wrl_n),
+        .PRG_WRH_N(prg_wrh_n), .PRG_OE_N(prg_oe_n), .PRG_RFS(prg_rfs), .PRG_RDY(prg_rdy),
+        .ROM_DI(rom_di), .ROM_CE_N(rom_ce_n), .ROM_RDY(rom_rdy),
+        .BRAM_A(bram_a), .BRAM_DI(bram_di), .BRAM_DO(bram_do), .BRAM_WE(bram_we),
+        .CDD_STAT(cdd_stat), .CDD_COMM(cdd_comm), .CDD_SEND(cdd_send), .CDD_REC(cdd_rec),
+        .CDD_DM(cdd_dm),
+        .CDC_DATA(cdc_data), .CDC_DAT_WR(cdc_dat_wr), .CDC_SC_WR(cdc_sc_wr),
+        .CDC_CDDA_WR(cdc_cdda_wr), .CDDA_WR_READY(cdda_wr_ready),
+        .PCM_SL(pcm_sl), .PCM_SR(pcm_sr), .CDDA_SL(cdda_sl), .CDDA_SR(cdda_sr),
+        .LED_RED(led_red), .LED_GREEN(led_green),
+        .GG_RESET(1'b0), .GG_EN(1'b0), .GG_CODE(129'd0), .GG_AVAILABLE(),
+        .DBG_S68K_A()
+    );
+endmodule

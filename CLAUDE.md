@@ -42,7 +42,8 @@ Open:
 - **Owner's pending hardware checks:** power-off saves, interlace, 240-line modes, SSF2, soak
   test, Pocket B (requirements marked WIP).
 - **Not planned:** PAL MCLK (parked, `experiments/pal_reconfig/`), Memories (doesn't fit,
-  `experiments/memories/`), 3-4 players (on request, REQ-INP-04). CI is deferred by the owner.
+  `experiments/memories/`), Sega CD 32X games (doesn't fit, `experiments/segacd32x/`), 3-4 players
+  (on request, REQ-INP-04). CI is deferred by the owner.
 - **Area is tight:** synthesis estimate about 17.0k of 18.48k ALMs. Weigh the area cost of
   any new feature.
 
@@ -81,6 +82,7 @@ sim/                                              Testbenches (sim/run.sh <bench
 experiments/fit_s32x/                             REQ-ARCH-03/04 fit experiment and variants
 experiments/pal_reconfig/                         Parked PAL MCLK switching attempt (REQ-ARCH-06)
 experiments/memories/                             Memories feasibility study: not feasible for 32X (REQ-APF-08)
+experiments/segacd32x/                            Sega CD 32X games fit experiment: not feasible
 src/fpga/core/core_bridge_cmd.v                   Host/target command handler (data slots, status). Vendor-provided
 ```
 

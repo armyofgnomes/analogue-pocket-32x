@@ -10,6 +10,7 @@ releases with the SD-card zip. Per-build hardware results are in `docs/test-log.
   documented exceptions, so nothing is left unconstrained), and the build checks that the memory
   pin registers are in their I/O cells; a simulation regression script.
 - Memories studied and found not to fit alongside the 32X (`experiments/memories/`).
+- Sega CD 32X games studied and found not to fit (`experiments/segacd32x/`).
 
 ## 0.4.2 (2026-09-30)
 
