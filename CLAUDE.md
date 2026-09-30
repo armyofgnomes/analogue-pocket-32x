@@ -71,9 +71,12 @@ src/fpga/core/core_bridge_cmd.v                   Host/target command handler (d
 - **Never commit copyrighted ROMs or BIOS images** to git, including `.mif`/`.hex` BIOS
   embeds that some upstream cores ship with. Pushing them to GitHub counts as distributing them.
 - BIOS policy: the bitstream contains **no BIOS**. The core loads the three BIOS files from the
-  SD card through required data slots (`data.json` ids 20-22, `Assets/32x/common/`:
+  SD card through optional data slots (`data.json` ids 20-22, `Assets/32x/common/`:
   `32X_G_BIOS.BIN` 68K 256 B, `32X_M_BIOS.BIN` master SH-2 2 KB, `32X_S_BIOS.BIN` slave SH-2
-  1 KB), written into the BIOS memories by patch 0011's load port (REQ-APF-03b). The simulations
+  1 KB), written into the BIOS memories by patch 0011's load port (REQ-APF-03b). Optional on
+  purpose: a required slot with a missing file makes the Pocket open a file browser instead of
+  starting the game; this way a 32X game shows the core's missing-BIOS screen (`core_top.v`,
+  `s32x_msg_rom.sv`) and Genesis games run without the BIOS. The simulations
   still preload them: local dumps in the gitignored `bios/` become gitignored `.mif` files
   (`tools/gen_bios_mif.py`, `BIOS_MIF` define). See REQ-APF-03 / REQ-LEGAL-03.
 - Mixed-language HDL is fine (Quartus handles Verilog, SystemVerilog and VHDL together).

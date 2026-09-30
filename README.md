@@ -37,7 +37,7 @@ Assets/32x/common/          put your ROMs here
 
 Put the BIOS files in `Assets/32x/common/` too, named exactly `32X_G_BIOS.BIN` (68K, 256 bytes),
 `32X_M_BIOS.BIN` (master SH-2, 2 KB) and `32X_S_BIOS.BIN` (slave SH-2, 1 KB). If one is missing,
-the Pocket reports it when you load a game.
+a 32X game shows a screen naming the missing file. Genesis games don't need the BIOS.
 
 ROMs: `.32x` for 32X games, `.md`, `.bin` or `.gen` for Genesis games. Load them from the core's
 menu on the Pocket.

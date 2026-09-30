@@ -29,7 +29,7 @@
             {
                 "id": 20,
                 "name": "68K BIOS",
-                "required": true,
+                "required": false,
                 "filename": "32X_G_BIOS.BIN",
                 "parameters": "0x0",
                 "extensions": [
@@ -41,7 +41,7 @@
             {
                 "id": 21,
                 "name": "Master SH-2 BIOS",
-                "required": true,
+                "required": false,
                 "filename": "32X_M_BIOS.BIN",
                 "parameters": "0x0",
                 "extensions": [
@@ -53,7 +53,7 @@
             {
                 "id": 22,
                 "name": "Slave SH-2 BIOS",
-                "required": true,
+                "required": false,
                 "filename": "32X_S_BIOS.BIN",
                 "parameters": "0x0",
                 "extensions": [
