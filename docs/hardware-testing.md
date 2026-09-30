@@ -66,6 +66,16 @@ Results go in `docs/test-log.md` (create on first test): date, build hash, Pocke
   output, memory controller behavior) should be proven there before costing the owner a
   hardware cycle.
 
+## Known-good builds
+
+Hardware-verified builds are tagged `vX.Y.Z` (annotated, with notes); `core.json` carries the
+same version. To go back to one: `git checkout vX.Y.Z -- output/bitstream.rbf_r` (or check out
+the tag) and `tools/package.py --zip`. Every build commit also contains its bitstream.
+
+| Tag | Commit | Highlights |
+|---|---|---|
+| v0.4.0 | see `git show v0.4.0` | BIOS loaded from the SD card (none in the bitstream), missing-BIOS screen, settings menu, saves, icon/banner; verified on two Pockets and the Dock |
+
 ## Known-good test cases
 
 - **Pad test program:** `python3 sim/system/roms/make_padtest.py build/padtest.bin` builds a tiny
