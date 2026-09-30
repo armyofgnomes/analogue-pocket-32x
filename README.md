@@ -63,7 +63,9 @@ Put the BIOS files in `Assets/32x/common/` too, named exactly `32X_G_BIOS.BIN` (
 a 32X game shows a screen naming the missing file. Genesis games don't need the BIOS.
 
 ROMs: `.32x` for 32X games, `.md`, `.bin` or `.gen` for Genesis games. Load them from the core's
-menu on the Pocket.
+menu on the Pocket. ROMs must be unzipped: the core reads files as they are on the card and
+doesn't list or open `.zip` files. Interleaved `.smd` dumps aren't supported either; convert them
+to `.bin` or `.md` first.
 
 ## Building
 
