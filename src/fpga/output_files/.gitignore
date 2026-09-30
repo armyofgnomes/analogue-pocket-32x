@@ -1,2 +1,4 @@
-!*.sof
-!*.rbf
+# Quartus build outputs: not committed. Hardware-verified builds are GitHub releases
+# (tools/release.sh); see docs/hardware-testing.md.
+*
+!.gitignore

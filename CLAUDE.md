@@ -51,7 +51,7 @@ core.json, data.json, video.json, audio.json,   APF core definition JSON files
 input.json, interact.json, variants.json         (copied into the SD card's core folder)
 info.txt                                          Text shown in the Pocket's core info screen
 dist/                                             SD-card staging: icon.bin, platforms/*.json, platform images
-output/bitstream.rbf_r                            Bit-reversed bitstream the Pocket loads (latest build)
+output/bitstream.rbf_r                            Bit-reversed bitstream of the latest local build (not committed)
 src/fpga/ap_core.qpf / ap_core.qsf                Quartus project (Cyclone V 5CEBA4F23C8, top = apf_top)
 src/fpga/apf/                                     Analogue framework glue. Treat as vendor code; do not edit
 src/fpga/core/core_top.v                          APF glue: bridge, ROM loader, input, video formatter, audio
@@ -64,8 +64,9 @@ src/fpga/core/s32x_msg_rom.sv                     Font/text ROM for on-screen me
 src/fpga/core/rtl/S32X_MiSTer/                    Upstream submodule (pinned; patched at build time)
 src/fpga/core/rtl/patches/                        Our patches to upstream, applied in order
 src/fpga/core/rtl/agg23/                          agg23's MIT data_loader / sound_i2s / sync_fifo
-tools/                                            build.sh, prepare_upstream.sh, reverse_bits.py, package.py,
-                                                  gen_bios_mif.py (sims), gen_images.py, gen_msg_rom.py
+tools/                                            build.sh, release.sh, fingerprint.sh, prepare_upstream.sh,
+                                                  reverse_bits.py, package.py, gen_bios_mif.py (sims),
+                                                  gen_images.py, gen_msg_rom.py
 sim/                                              Testbenches (sim/run.sh <bench>; sim/system/run.sh for the full system)
 experiments/fit_s32x/                             REQ-ARCH-03/04 fit experiment and variants
 experiments/pal_reconfig/                         Parked PAL MCLK switching attempt (REQ-ARCH-06)
@@ -161,7 +162,9 @@ It needs the BIOS dumps in `bios/`.
   (synthesis estimate and fitter figure).
 - When the owner verifies a build on hardware:
   - bump `core.json`'s version;
-  - tag the commit `vX.Y.Z` (annotated);
+  - tag the commit `vX.Y.Z` (annotated), push it;
+  - run `tools/release.sh vX.Y.Z` to create the GitHub release with the SD zip;
   - add it to "Known-good builds" in `docs/hardware-testing.md`;
   - log every test in `docs/test-log.md` (Pocket A: white original, B: transparent orange).
+- Build outputs aren't committed; the owner tests from `build/sdcard/` (or `build/sdcard.zip`).
 - Commit directly to `main` and push; no PRs unless asked.

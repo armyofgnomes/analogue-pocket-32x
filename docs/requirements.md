@@ -169,10 +169,10 @@ bitstream), so publishing needs these plus a look at the upstream licensing (arc
 
 | ID | Pri | Requirement | Verify | Status |
 |---|---|---|---|---|
-| REQ-DIST-01 | P1 | Release zip matching the Pocket SD-card layout, installable by unzip-to-root | HW | TODO |
+| REQ-DIST-01 | P1 | Release zip matching the Pocket SD-card layout, installable by unzip-to-root | HW | DONE: `tools/package.py --zip` makes the unzip-to-root SD tree; `tools/release.sh` publishes it as a GitHub release per hardware-verified tag (releases v0.4.0 to v0.4.2, private repo for now) |
 | REQ-DIST-02 | P1 | `README.md` rewritten: features, install, BIOS filenames and placement, known issues, credits | DOC | TODO |
 | REQ-DIST-03 | P1 | `updaters.json` / inventory-compatible metadata so the core shows up in community updaters (e.g. pocket_updater, openFPGA Library) | DOC | TODO |
-| REQ-DIST-04 | P1 | Semantic versioning and release notes per release | DOC | TODO |
+| REQ-DIST-04 | P1 | Semantic versioning and release notes per release | DOC | WIP: semantic versions (`core.json`, annotated tags) with release notes from the tag message; no changelog file yet |
 
 ---
 

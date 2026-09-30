@@ -41,4 +41,11 @@ grep -E "Logic utilization|Total RAM Blocks|Total DSP" output_files/ap_core.fit.
 # stable measure of how much logic the design really has.
 grep -E "Estimate of Logic utilization" output_files/ap_core.map.rpt | sed 's/  */ /g'
 python3 "$repo/tools/reverse_bits.py"
+# Fingerprint of the sources this bitstream was built from (committed or not), checked by
+# tools/release.sh before it publishes the bitstream for a tag.
+{
+    echo "# written by tools/build.sh; checked by tools/release.sh"
+    echo "built $(date -u +%Y-%m-%dT%H:%M:%SZ) from HEAD $(git -C "$repo" rev-parse --short HEAD)"
+    echo "fingerprint $("$repo/tools/fingerprint.sh")"
+} > "$repo/output/build_info.txt"
 python3 "$repo/tools/package.py" --zip

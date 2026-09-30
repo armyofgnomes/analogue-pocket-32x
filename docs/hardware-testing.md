@@ -69,23 +69,29 @@ firmware version, handheld/docked, results.
 
 ## Known-good builds
 
-Hardware-verified builds are tagged `vX.Y.Z` (annotated, with notes); `core.json` carries the
-same version. To go back to one, package the tag's whole tree, not just its bitstream (the JSON
-files change too, e.g. the BIOS slot addresses between v0.4.0 and v0.4.1):
+Hardware-verified builds are tagged `vX.Y.Z` (annotated, with notes), `core.json` carries the
+same version, and each is a **GitHub release** with the SD-card zip
+(https://github.com/armyofgnomes/32x-core/releases). To go back to one, download its zip and
+unzip it to the SD card root; the zip holds the matching JSON files too (they change between
+versions, e.g. the BIOS slot addresses between v0.4.0 and v0.4.1).
 
-```
-git worktree add /tmp/32x-v0.4.1 v0.4.1
-cd /tmp/32x-v0.4.1 && python3 tools/package.py --zip    # SD tree in /tmp/32x-v0.4.1/build/sdcard
-git worktree remove /tmp/32x-v0.4.1                     # afterwards, from the main checkout
-```
+Publishing, after the owner verifies a build:
+1. Bump `core.json`'s version, commit, then `git tag -a vX.Y.Z` with notes and push both.
+2. `tools/release.sh vX.Y.Z`. It checks that the bitstream in `output/` was built from the
+   tag's sources (`output/build_info.txt`, written by `tools/build.sh`), packages the tag's tree
+   with it and creates the release. `DRY_RUN=1` does everything except publishing.
 
-Every build commit also contains its bitstream.
+Build outputs (bitstream, `.sof`/`.rbf`, `apf/build_id.mif`) aren't committed since v0.4.2:
+releases are the archive. Commits up to v0.4.2 still contain their bitstreams.
 
 | Tag | Commit | Highlights |
 |---|---|---|
 | v0.4.0 | see `git show v0.4.0` | BIOS loaded from the SD card (none in the bitstream), missing-BIOS screen, settings menu, saves, icon/banner; verified on two Pockets and the Dock |
 | v0.4.1 | see `git show v0.4.1` | Reconfigurable core PLL (idle, NTSC), timing fixes (mid-edge enable, synchronizers, SDC check), BIOS via the ROM loader |
 | v0.4.2 | see `git show v0.4.2` | SH-2 UBC restored: After Burner Complete's weapon sounds (PWM) fixed |
+
+Releases v0.4.0 to v0.4.2 were created afterwards from their tags (each packaged from its own
+tree, which then still contained its bitstream).
 
 ## Known-good test cases
 

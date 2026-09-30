@@ -12,3 +12,10 @@ __pycache__/
 
 # Generated from bios/ at build time (copyrighted BIOS data, never commit)
 /src/fpga/core/bios_mif/
+
+# Build outputs: not committed. Hardware-verified builds are published as GitHub releases
+# (tools/release.sh), which are also the rollback points (docs/hardware-testing.md).
+/output/*
+!/output/.gitkeep
+# Regenerated with the build date/time on every build (apf/build_id_gen.tcl)
+/src/fpga/apf/build_id.mif
