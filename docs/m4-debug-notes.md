@@ -20,6 +20,30 @@ Latest Pocket build: **6a7d9cb** (SDRAM pins in I/O cells). Hardware results for
 
 No Pocket build is pending. The next build comes after the cause below is found and fixed.
 
+## Open (postponed): After Burner Complete lacks its cannon and missile sounds
+
+Reported on 46d8920: music and some effects play, the cannon and missile sounds don't. Not a
+known upstream issue as far as a search shows; our upstream pin (b438679, 2026-06-22) is upstream's
+latest and includes its 2022 PWM fix. Whether it worked on earlier builds is unknown.
+
+Static look at the ROM (SH-2 code at cart 0x53000, 0x1A000 bytes, copied to 0x06000000):
+- The SH-2 code sets PWMCR and CYCR once (GBR-relative writes at SDRAM 0x0600031A/0x0600031E) but
+  never writes the PWM pulse-width registers (LPWR/RPWR/MONO) itself, and the 68K never touches PWM.
+- It loads the DMA channel base (`mov #-128,Rn`, 0xFFFFFF80) 28 times.
+So every PWM sample goes through the SH-2 DMAC (probably paced by the PWM timer's DREQ,
+`PWMCR.RTP`). The effects that work are likely the Genesis FM/PSG, or DMA transfers that happen
+to work.
+
+Suspects, in order: DMA transfer modes that reach paths we changed. 16-byte (burst) DMA reads
+through `s32x_sdram_front.sv`'s line buffer, DMA writes through its queue, and DMA reads from the
+cartridge after patch 0009 (ROM_WAIT sampled on the rising edge). Also possible: an upstream DMAC or
+DREQ issue that MiSTer shares.
+
+Next step when resumed: disassemble the DMA setup around the 28 base loads to get the modes
+(TS, AM, DS/DL, source area); then either a `sim/sdram_front`-style bench for that DMA pattern,
+or a full-system run of the attract mode (which fires weapons) with the DMA traced. An A/B test on
+hardware against b28c877 (before patch 0009) would also separate the cart-path suspect.
+
 ## Found (2026-09-29): NBA Jam TE hung at start (bars) because cart quirks weren't ported
 
 `s32x_system.sv` tied the cart module's `eeprom_map`, `noram_quirk`, `realtec_map`, `sf_map`, the
