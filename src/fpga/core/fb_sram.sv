@@ -86,7 +86,10 @@ reg        fs_r;
 reg tog_n, tog_p;
 always @(negedge clk_ram) tog_n <= sys_tog;
 always @(posedge clk_ram) tog_p <= tog_n;
-wire mid = tog_n ^ tog_p;
+// Mid edges alternate, so the next edge's mid is the inverse of this one's (tog_n ^ tog_p):
+// registered one edge ahead, only this flop sees the half-cycle path from tog_n.
+reg mid = 0;
+always @(posedge clk_ram) mid <= ~(tog_n ^ tog_p);
 
 wire wr_evt[2], rd_evt[2];
 genvar c;

@@ -754,6 +754,11 @@ set_global_assignment -name QIP_FILE apf/apf.qip
 set_global_assignment -name VERILOG_FILE core/core_top.v
 set_global_assignment -name VERILOG_FILE core/core_bridge_cmd.v
 set_global_assignment -name VERILOG_FILE core/pll_core.v
+set_global_assignment -name VERILOG_FILE core/pll/pll_core_reconf.v
+set_global_assignment -name VERILOG_FILE core/pll/pll_core_cfg.v
+set_global_assignment -name VERILOG_FILE core/pll/altera_pll_reconfig_top.v
+set_global_assignment -name VERILOG_FILE core/pll/altera_pll_reconfig_core.v
+set_global_assignment -name VERILOG_FILE core/pll/altera_std_synchronizer.v
 set_global_assignment -name SYSTEMVERILOG_FILE core/s32x_system.sv
 set_global_assignment -name SYSTEMVERILOG_FILE core/fb_sram.sv
 set_global_assignment -name SYSTEMVERILOG_FILE core/memtest.sv
@@ -796,6 +801,9 @@ set_instance_assignment -name PHYSICAL_SYNTHESIS_REGISTER_RETIMING OFF -to "core
 # pushed IR forward into the microcode decode and broke setup on that half-cycle path (-0.92 ns).
 # The Z80 runs on a 3.58 MHz clock enable and needs no retiming.
 set_instance_assignment -name PHYSICAL_SYNTHESIS_REGISTER_RETIMING OFF -to "core_top:ic|s32x_system:system|gen:gen|T80pa:Z80"
+# Synchronizers (apf/common.v synch_3) must stay flip-flop chains: auto shift-register recognition
+# turned a 16-bit one (controller 2 keys) into a block-RAM shift register.
+set_instance_assignment -name AUTO_SHIFT_REGISTER_RECOGNITION OFF -to "*|synch_3:*"
 # SDRAM pin registers in the I/O cells, as MiSTer's sys.tcl does for the same sdram.sv. Without
 # these the fitter places them freely and the (unconstrained) pin timing changes from build to
 # build: bc7ce5c, which turned retiming off above, blanked every game on hardware.

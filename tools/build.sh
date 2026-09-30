@@ -29,6 +29,13 @@ flock -u 9
 "$QUARTUS_BIN/quartus_fit" ap_core
 "$QUARTUS_BIN/quartus_asm" ap_core
 "$QUARTUS_BIN/quartus_sta" ap_core
+# A constraint in our SDC that no longer matches (e.g. renamed clocks) is silently ignored by
+# Quartus and can hide real failures or report false ones: treat it as an error.
+if grep -E "Warning \(3321(74|49)\).*core_constraints\.sdc" output_files/ap_core.sta.rpt >/dev/null; then
+    grep -E "Warning \(3321(74|49)\).*core_constraints\.sdc" output_files/ap_core.sta.rpt | head -5 >&2
+    echo "error: core_constraints.sdc has constraints that match nothing (see above)" >&2
+    exit 1
+fi
 grep -E "Logic utilization|Total RAM Blocks|Total DSP" output_files/ap_core.fit.summary
 python3 "$repo/tools/reverse_bits.py"
 python3 "$repo/tools/package.py" --zip

@@ -23,7 +23,7 @@ for line in (fpga / "ap_core.qsf").read_text().splitlines():
     if not m:
         continue
     p = fpga / m.group(2)
-    if 'apf/' in m.group(2) or 'agg23/' in m.group(2) or \
+    if 'apf/' in m.group(2) or 'agg23/' in m.group(2) or 'core/pll/' in m.group(2) or \
        m.group(2) in ('core/core_top.v', 'core/core_bridge_cmd.v', 'core/pll_core.v'):
         continue   # APF glue, loader/I2S and PLL live in core_top, outside the system bench
     add(p)

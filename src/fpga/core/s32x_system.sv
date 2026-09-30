@@ -719,7 +719,11 @@ always @(posedge clk_sys) sys_tog <= ~sys_tog;
 reg ram_tog_n = 0, ram_tog_p = 0;
 always @(negedge clk_ram) ram_tog_n <= sys_tog;
 always @(posedge clk_ram) ram_tog_p <= ram_tog_n;
-wire ram_mid = ram_tog_n ^ ram_tog_p;
+// Mid edges alternate with the other clk_ram edges, so the next edge's mid is the inverse of this
+// one's (ram_tog_n ^ ram_tog_p). Registered one edge ahead: only this flop sits on the half-cycle
+// path from ram_tog_n (falling edge), not the ~100 input registers mid enables.
+reg ram_mid = 0;
+always @(posedge clk_ram) ram_mid <= ~(ram_tog_n ^ ram_tog_p);
 
 ///////////////////////////////////////////////////
 // 32X framebuffers in SRAM (fb_sram.sv)
