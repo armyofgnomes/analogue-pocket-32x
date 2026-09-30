@@ -575,8 +575,9 @@ assign datatable_data = 32'd65536;
 //   0x20 6-button pad            0x30 Audio filter: 0 Model 1, 1 Model 2, 2 minimal, 3 none
 //   0x40 FM chip: 0 YM2612, 1 YM3438                       0x50 HiFi PCM
 //   0x60 Composite blend         0x70 High sprite limit
-// Reset, and a region change (which only takes effect at reset), hold the console in reset
-// while the Pocket menu is open and for about 1 ms after it closes.
+// Reset, a region change (which only takes effect at reset) and a pad type change (games look
+// for a 6-button pad at boot) hold the console in reset while the Pocket menu is open and for
+// about 1.8 ms after it closes.
 
     reg     [1:0]   set_region = 0;
     reg             set_6btn = 0;
@@ -597,7 +598,10 @@ always @(posedge clk_74a) begin
             set_region <= bridge_wr_data[1:0];
             if (bridge_wr_data[1:0] != set_region) user_reset_cnt <= 17'h1FFFF;
         end
-        8'h20: set_6btn      <= bridge_wr_data[0];
+        8'h20: begin
+            set_6btn <= bridge_wr_data[0];
+            if (bridge_wr_data[0] != set_6btn) user_reset_cnt <= 17'h1FFFF;
+        end
         8'h30: set_lpf       <= bridge_wr_data[1:0];
         8'h40: set_ym3438    <= bridge_wr_data[0];
         8'h50: set_hifi      <= bridge_wr_data[0];

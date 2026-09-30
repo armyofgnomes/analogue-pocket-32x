@@ -35,11 +35,16 @@ wire [16:0] SRAM_A;
 wire [15:0] SRAM_DQ;
 wire        SRAM_OE_N, SRAM_WE_N, SRAM_UB_N, SRAM_LB_N;
 
+bit pad6;                              // +pad6: 6-button pad on port 1
+initial pad6 = $test$plusargs("pad6");
+reg [11:0] joy1 = 0;                   // +joy1=<hex>: port 1 buttons held (gen JOY_1 bit order)
+initial void'($value$plusargs("joy1=%h", joy1));
+
 s32x_system dut (
 	.clk_sys(clk_sys), .clk_ram(clk_ram), .pll_locked(pll_locked), .reset(reset),
 	.rom_loading(rom_loading), .rom_wr(rom_wr), .rom_wr_addr(rom_wr_addr), .rom_wr_data(rom_wr_data),
 	.save_clk(clk_sys), .save_a(14'd0), .save_d(16'd0), .save_we(1'b0), .save_q(),
-	.joy_1(12'd0), .joy_2(12'd0), .j3but(1'b1),
+	.joy_1(joy1), .joy_2(12'd0), .j3but(!pad6),
 	.region_sel(2'd0), .lpf_mode(2'd0), .fm_ym3438(1'b0), .hifi_pcm(1'b0), .sprite_high(1'b0),
 	.r(r), .g(g), .b(b), .ce_pix(ce_pix), .hblank(hblank), .vblank(vblank), .hs_n(hs_n), .vs_n(vs_n),
 	.resolution(resolution), .interlace(interlace), .field(field), .pal(pal),
@@ -260,6 +265,20 @@ always @(posedge clk_sys) if (shsnap && dut.S32X.s32x_if.ADCR.RES) begin
 	end
 end
 
+// 68K bus trace (+m68k_start=<ns> +m68k_end=<ns>): every 68K bus cycle, at AS_N rising (cycle end)
+real m68k_start = -1, m68k_end = -1;
+initial begin
+	void'($value$plusargs("m68k_start=%f", m68k_start));
+	void'($value$plusargs("m68k_end=%f", m68k_end));
+end
+reg m68k_as_d = 1;
+always @(posedge clk_sys) begin
+	m68k_as_d <= dut.gen.M68K_AS_N;
+	if (m68k_start >= 0 && $realtime >= m68k_start && $realtime <= m68k_end && !m68k_as_d && dut.gen.M68K_AS_N)
+		$display("%t 68K %s A=%06h DI=%04h DO=%04h", $realtime, dut.gen.M68K_RNW ? "RD" : "WR",
+		         {dut.gen.M68K_A, 1'b0}, dut.gen.M68K_DI, dut.gen.M68K_DO);
+end
+
 // Bus trace window (+win_start=<ns> +win_end=<ns>): every master/slave SH-2 bus cycle start
 // (BS_N falling), with address, chip selects, read/write, WAIT and the SDRAM port state.
 real win_start = -1, win_end = -1;
@@ -475,6 +494,20 @@ initial begin
 	repeat (20) @(posedge clk_sys);
 	$display("rom_sz=%06h pal=%b", dut.rom_sz, pal);
 	reset = 0;
+end
+
+// Pad 1 protocol (+pad6: 6-button pad). Logs TH edges / 6-button counter and the data returned.
+int n_padlog;
+reg [1:0] pad_jcnt_d;
+reg       pad_th_d;
+always @(posedge clk_sys) begin
+	pad_jcnt_d <= dut.gen.multitap.io.pad1.JCNT;
+	pad_th_d   <= dut.gen.multitap.io.pad1.TH;
+	if (n_padlog < 400 && (dut.gen.multitap.io.pad1.JCNT != pad_jcnt_d || dut.gen.multitap.io.pad1.TH != pad_th_d)) begin
+		n_padlog++;
+		$display("%t PAD1 TH=%b JCNT=%0d DO=%02h J3BUT=%b", $realtime, dut.gen.multitap.io.pad1.TH,
+			dut.gen.multitap.io.pad1.JCNT, dut.gen.multitap.io.pad1.DO, dut.gen.multitap.io.pad1.J3BUT);
+	end
 end
 
 // Save RAM activity (cart SRAM accesses, EEPROM storage reads/writes)

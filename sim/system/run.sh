@@ -7,6 +7,11 @@ Q=${QUESTA_BIN:-$HOME/altera_lite/25.1std/questa_fse/bin}
 export SALT_LICENSE_SERVER=${SALT_LICENSE_SERVER:-$HOME/.altera.quartus/questa_lic.dat}
 INTEL=$Q/../intel
 
+# Parallel runs (WORK=...): prepare_upstream.sh resets and re-patches the submodule, which breaks
+# another run that is patching or compiling at the same moment. Serialize that part.
+mkdir -p "$repo/build/sim"
+exec 9>"$repo/build/sim/.prepare_compile.lock"
+flock 9
 "$repo/tools/prepare_upstream.sh" >/dev/null
 python3 "$repo/tools/gen_bios_mif.py" >/dev/null
 "$repo/sim/sdram/prep.sh" >/dev/null
@@ -29,6 +34,7 @@ if [ "${SKIP_COMPILE:-0}" != 1 ]; then
     "$Q/vlog" -sv -quiet -suppress 2244,2388 ${VLOG_DEFS:-} -L altera_mf_ver $vl \
         "$work/ddram_sim.sv" "$repo/sim/common/sdram_model.sv" "$repo/sim/system/tb_system.sv"
 fi
+flock -u 9
 # Init files: the BIOS ROMs use core/bios_mif/*.mif (relative to the Quartus project dir), fx68k
 # reads microrom.mem / nanorom.mem from the working directory.
 mkdir -p core
