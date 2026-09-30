@@ -37,7 +37,7 @@ Update the status column in the same commit that completes a requirement.
 | REQ-TOOL-03 | P0 | Script to assemble an SD-card-ready package (`Cores/`, `Platforms/`, `Assets/` layout) from repo files + built bitstream | HW | DONE |
 | REQ-TOOL-04 | P1 | Simulation setup for core logic (Verilator and/or GHDL + Icarus/ModelSim for mixed VHDL/Verilog), runnable in Claude's container | SIM | DONE |
 | REQ-TOOL-05 | P1 | Build-ID and version stamping (template's `build_id_gen.tcl`) surfaced in `core.json` versions/release notes | DOC | WIP: the template's `build_id_gen.tcl` stamps every bitstream (`apf/build_id.mif`); `core.json` version and date are still set by hand |
-| REQ-TOOL-06 | P2 | CI build (GitHub Actions with a Quartus container) producing the `.rbf_r` and zip artifact | FIT | TODO |
+| REQ-TOOL-06 | P2 | CI build (GitHub Actions with a Quartus container) producing the `.rbf_r` and zip artifact | FIT | TODO (deferred by the owner, 2026-09-30). Findings: Intel/Altera's Quartus installers return 403 to scripted downloads (login required), so GitHub-hosted runners would need a community Quartus Docker image (a different version than our 25.1std, so fit/timing may differ) and use the private repo's 2,000 free minutes/month (~30-45 min per build). Alternatives: a self-hosted runner on the owner's PC (same Quartus, unlimited), or no CI and a GitHub Release per hardware-verified build. Meanwhile every build commit already carries its `output/bitstream.rbf_r` |
 
 ## 2. Legal and provenance (LEGAL)
 
