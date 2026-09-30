@@ -9,8 +9,8 @@ M4 is done and most tested 32X games play (see `docs/test-log.md`). This file is
 debugging history: each "Found" section is a solved problem, kept for the method and the tools.
 The simulation toolkit is described at the end.
 
-Open: After Burner Complete's PWM weapon sounds. The cause was found (below); the fix awaits a
-hardware test.
+No known open game issues: After Burner Complete's PWM weapon sounds (below) are fixed and
+verified on hardware (89c9c20).
 
 ## Found (2026-09-30): After Burner Complete's PWM sounds need the SH-2 UBC registers
 

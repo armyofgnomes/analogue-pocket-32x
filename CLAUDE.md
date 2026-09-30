@@ -32,9 +32,9 @@ M0 through M4 are done, and M6 (polish) is mostly done. Known-good builds are ta
 - **Look:** the "32X" icon and platform banner.
 
 Open:
-- **M5:** After Burner Complete's PWM weapon sounds. Cause found: the game keeps its sample
-  index in the SH-2 UBC register BARA, and removed patch 0005 had disabled the UBC. The fix
-  awaits a hardware test.
+- **M5:** no known open game issues (the last one, After Burner Complete's PWM weapon sounds,
+  was fixed by restoring the SH-2 UBC; see `docs/m4-debug-notes.md`). The formal test matrix
+  (REQ-QA-03) is still to do.
 - **PAL MCLK:** parked (`experiments/pal_reconfig/`).
 - **CI:** deferred by the owner.
 - **Area is tight:** synthesis estimate about 16.8k of 18.48k ALMs. Weigh the area cost of

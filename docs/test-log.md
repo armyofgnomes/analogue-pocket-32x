@@ -30,3 +30,4 @@ orange release (second-unit checks).
 | 2026-09-30 | 0ce5349 (5e0057f bitstream) | ? | ? | Handheld + Dock | **Pass.** Icon and platform banner display correctly (orientation, contrast). Dock: works, second controller works as player 2, HDMI picture good with correct aspect ratio |
 | 2026-09-30 | 428c967 | ? | ? | Handheld | **Pass (PAL step 1: reconfigurable PLL, NTSC only).** 32X games play normally; Chaotix save loads; Genesis games look and sound right; Region change restarts the game. Dock not retested |
 | 2026-09-30 | b2061a4 | A | ? | Handheld | **Pass.** BIOS through the ROM loader (new slot addresses): 32X games boot, missing-BIOS screen still correct, Genesis games and saves fine. No regressions. PAL reconfiguration parked (owner agrees) |
+| 2026-09-30 | 89c9c20 | A | ? | Handheld | **Pass (M5).** SH-2 UBC restored: After Burner Complete's cannon and missile sounds play; audio correct |
