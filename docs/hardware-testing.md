@@ -75,6 +75,7 @@ the tag) and `tools/package.py --zip`. Every build commit also contains its bits
 | Tag | Commit | Highlights |
 |---|---|---|
 | v0.4.0 | see `git show v0.4.0` | BIOS loaded from the SD card (none in the bitstream), missing-BIOS screen, settings menu, saves, icon/banner; verified on two Pockets and the Dock |
+| v0.4.1 | see `git show v0.4.1` | Reconfigurable core PLL (idle, NTSC), timing fixes (mid-edge enable, synchronizers, SDC check), BIOS via the ROM loader |
 
 ## Known-good test cases
 

@@ -7,7 +7,7 @@
             "description": "Sega 32X (Genesis + 32X). Work in progress: Genesis and most tested 32X games play, with saves.",
             "author": "armyofgnomes",
             "url": "https://github.com/armyofgnomes/32x-core",
-            "version": "0.4.0",
+            "version": "0.4.1",
             "date_release": "2026-09-30"
         },
         "framework": {
