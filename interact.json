@@ -1,7 +1,136 @@
 {
     "interact": {
         "magic": "APF_VER_1",
-        "variables": [],
+        "variables": [
+            {
+                "name": "Reset",
+                "id": 1,
+                "type": "action",
+                "enabled": true,
+                "address": "0x00000000",
+                "value": 1
+            },
+            {
+                "name": "Region",
+                "id": 10,
+                "type": "list",
+                "enabled": true,
+                "persist": true,
+                "writeonly": true,
+                "address": "0x00000010",
+                "defaultval": 0,
+                "options": [
+                    {
+                        "value": 0,
+                        "name": "Auto"
+                    },
+                    {
+                        "value": 1,
+                        "name": "USA"
+                    },
+                    {
+                        "value": 2,
+                        "name": "Japan"
+                    },
+                    {
+                        "value": 3,
+                        "name": "Europe"
+                    }
+                ]
+            },
+            {
+                "name": "6-Button Pad",
+                "id": 20,
+                "type": "check",
+                "enabled": true,
+                "persist": true,
+                "writeonly": true,
+                "address": "0x00000020",
+                "defaultval": 0,
+                "value": 1
+            },
+            {
+                "name": "Audio Filter",
+                "id": 30,
+                "type": "list",
+                "enabled": true,
+                "persist": true,
+                "writeonly": true,
+                "address": "0x00000030",
+                "defaultval": 0,
+                "options": [
+                    {
+                        "value": 0,
+                        "name": "Model 1"
+                    },
+                    {
+                        "value": 1,
+                        "name": "Model 2"
+                    },
+                    {
+                        "value": 2,
+                        "name": "Minimal"
+                    },
+                    {
+                        "value": 3,
+                        "name": "None"
+                    }
+                ]
+            },
+            {
+                "name": "FM Chip",
+                "id": 40,
+                "type": "list",
+                "enabled": true,
+                "persist": true,
+                "writeonly": true,
+                "address": "0x00000040",
+                "defaultval": 0,
+                "options": [
+                    {
+                        "value": 0,
+                        "name": "YM2612"
+                    },
+                    {
+                        "value": 1,
+                        "name": "YM3438"
+                    }
+                ]
+            },
+            {
+                "name": "HiFi PCM",
+                "id": 50,
+                "type": "check",
+                "enabled": true,
+                "persist": true,
+                "writeonly": true,
+                "address": "0x00000050",
+                "defaultval": 0,
+                "value": 1
+            },
+            {
+                "name": "Composite Blend",
+                "id": 60,
+                "type": "check",
+                "enabled": true,
+                "persist": true,
+                "writeonly": true,
+                "address": "0x00000060",
+                "defaultval": 0,
+                "value": 1
+            },
+            {
+                "name": "High Sprite Limit",
+                "id": 70,
+                "type": "check",
+                "enabled": true,
+                "persist": true,
+                "writeonly": true,
+                "address": "0x00000070",
+                "defaultval": 0,
+                "value": 1
+            }
+        ],
         "messages": []
     }
 }

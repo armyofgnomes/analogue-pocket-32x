@@ -569,6 +569,54 @@ assign datatable_wren = 1'b1;
 assign datatable_data = 32'd65536;
 
 ////////////////////////////////////////////////////////////////////////////////////////
+// Settings (interact.json): bridge writes to 0x000000x0 on clk_74a. Reset values match the
+// JSON defaults; the Pocket writes the persisted values when the core starts.
+//   0x00 Reset (action)          0x10 Region: 0 auto, 1 US, 2 Japan, 3 Europe
+//   0x20 6-button pad            0x30 Audio filter: 0 Model 1, 1 Model 2, 2 minimal, 3 none
+//   0x40 FM chip: 0 YM2612, 1 YM3438                       0x50 HiFi PCM
+//   0x60 Composite blend         0x70 High sprite limit
+// Reset, and a region change (which only takes effect at reset), hold the console in reset
+// while the Pocket menu is open and for about 1 ms after it closes.
+
+    reg     [1:0]   set_region = 0;
+    reg             set_6btn = 0;
+    reg     [1:0]   set_lpf = 0;
+    reg             set_ym3438 = 0;
+    reg             set_hifi = 0;
+    reg             set_blend = 0;
+    reg             set_spr_high = 0;
+    reg     [16:0]  user_reset_cnt = 0;
+    wire            user_reset_74a = user_reset_cnt != 0;
+always @(posedge clk_74a) begin
+    if (user_reset_cnt != 0 && !(osnotify_inmenu && user_reset_cnt == 17'h1FFFF))
+        user_reset_cnt <= user_reset_cnt - 1'd1;
+    if (bridge_wr && bridge_addr[31:8] == 24'h000000) begin
+        case (bridge_addr[7:0])
+        8'h00: user_reset_cnt <= 17'h1FFFF;
+        8'h10: begin
+            set_region <= bridge_wr_data[1:0];
+            if (bridge_wr_data[1:0] != set_region) user_reset_cnt <= 17'h1FFFF;
+        end
+        8'h20: set_6btn      <= bridge_wr_data[0];
+        8'h30: set_lpf       <= bridge_wr_data[1:0];
+        8'h40: set_ym3438    <= bridge_wr_data[0];
+        8'h50: set_hifi      <= bridge_wr_data[0];
+        8'h60: set_blend     <= bridge_wr_data[0];
+        8'h70: set_spr_high  <= bridge_wr_data[0];
+        default: ;
+        endcase
+    end
+end
+
+// Quasi-static: each changes rarely and only matters as a level
+    wire    [1:0]   set_region_s, set_lpf_s;
+    wire            set_6btn_s, set_ym3438_s, set_hifi_s, set_blend_s, set_spr_high_s, user_reset_s;
+synch_3 #(.WIDTH(10)) s07(
+    {set_region, set_lpf, set_6btn, set_ym3438, set_hifi, set_blend, set_spr_high, user_reset_74a},
+    {set_region_s, set_lpf_s, set_6btn_s, set_ym3438_s, set_hifi_s, set_blend_s, set_spr_high_s, user_reset_s},
+    clk_sys);
+
+////////////////////////////////////////////////////////////////////////////////////////
 // Controls: Pocket pad -> Genesis pad (same layout as openFPGA-Genesis)
 //   Genesis A = Pocket Y, B = B, C = A, X = L, Y = X, Z = R, Start = Start, Mode = Select
 
@@ -607,7 +655,7 @@ s32x_system system (
     .clk_sys        ( clk_sys ),
     .clk_ram        ( clk_ram ),
     .pll_locked     ( pll_locked_sys ),
-    .reset          ( ~reset_n_s | ~pll_locked_sys ),
+    .reset          ( ~reset_n_s | ~pll_locked_sys | user_reset_s ),
 
     .rom_loading    ( rom_loading ),
     .rom_wr         ( rom_wr ),
@@ -622,7 +670,13 @@ s32x_system system (
 
     .joy_1          ( genesis_pad(cont1_key_s) ),
     .joy_2          ( genesis_pad(cont2_key_s) ),
-    .j3but          ( 1'b1 ),
+    .j3but          ( ~set_6btn_s ),
+
+    .region_sel     ( set_region_s ),
+    .lpf_mode       ( set_lpf_s ),
+    .fm_ym3438      ( set_ym3438_s ),
+    .hifi_pcm       ( set_hifi_s ),
+    .sprite_high    ( set_spr_high_s ),
 
     .r              ( sys_r ),
     .g              ( sys_g ),
@@ -721,17 +775,41 @@ end
 // written (video_skip = 0), the rest are skipped. DE stays high across the whole active line.
 // Outside DE, video_rgb[23:13] carries the scaler slot = {V30, H40} (see video.json).
 
+// Composite blend (upstream's cofi): each pixel averaged with the previous one. It delays the
+// picture and its sync/blanking by one pixel, with or without blending.
+    wire    [7:0]   cf_r, cf_g, cf_b;
+    wire            cf_hbl, cf_vbl, cf_hs, cf_vs;
+cofi composite_blend (
+    .clk        ( clk_sys ),
+    .pix_ce     ( sys_ce_pix ),
+    .enable     ( set_blend_s ),
+    .hblank     ( sys_hblank ),
+    .vblank     ( sys_vblank ),
+    .hs         ( ~sys_hs_n ),
+    .vs         ( ~sys_vs_n ),
+    .red        ( sys_r ),
+    .green      ( sys_g ),
+    .blue       ( sys_b ),
+    .hblank_out ( cf_hbl ),
+    .vblank_out ( cf_vbl ),
+    .hs_out     ( cf_hs ),
+    .vs_out     ( cf_vs ),
+    .red_out    ( cf_r ),
+    .green_out  ( cf_g ),
+    .blue_out   ( cf_b )
+);
+
     reg     [23:0]  pix_rgb;
     reg             pix_hs, pix_vs, pix_hbl, pix_vbl;
     reg             pix_tog = 0;
     reg     [1:0]   pix_res;
 always @(posedge clk_sys) begin
     if (sys_ce_pix) begin
-        pix_rgb <= ov_on ? ov_rgb : {sys_r, sys_g, sys_b};
-        pix_hs  <= ~sys_hs_n;
-        pix_vs  <= ~sys_vs_n;
-        pix_hbl <= sys_hblank;
-        pix_vbl <= sys_vblank;
+        pix_rgb <= ov_on ? ov_rgb : {cf_r, cf_g, cf_b};
+        pix_hs  <= cf_hs;
+        pix_vs  <= cf_vs;
+        pix_hbl <= cf_hbl;
+        pix_vbl <= cf_vbl;
         pix_res <= sys_resolution;
         pix_tog <= ~pix_tog;
     end

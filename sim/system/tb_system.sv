@@ -40,6 +40,7 @@ s32x_system dut (
 	.rom_loading(rom_loading), .rom_wr(rom_wr), .rom_wr_addr(rom_wr_addr), .rom_wr_data(rom_wr_data),
 	.save_clk(clk_sys), .save_a(14'd0), .save_d(16'd0), .save_we(1'b0), .save_q(),
 	.joy_1(12'd0), .joy_2(12'd0), .j3but(1'b1),
+	.region_sel(2'd0), .lpf_mode(2'd0), .fm_ym3438(1'b0), .hifi_pcm(1'b0), .sprite_high(1'b0),
 	.r(r), .g(g), .b(b), .ce_pix(ce_pix), .hblank(hblank), .vblank(vblank), .hs_n(hs_n), .vs_n(vs_n),
 	.resolution(resolution), .interlace(interlace), .field(field), .pal(pal),
 	.audio_l(audio_l), .audio_r(audio_r),

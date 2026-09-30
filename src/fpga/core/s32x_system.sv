@@ -43,6 +43,13 @@ module s32x_system
 	input  [11:0] joy_2,
 	input         j3but,          // 1 = 3-button pad
 
+	// Settings (clk_sys, quasi-static)
+	input   [1:0] region_sel,     // 0 auto (cart header), 1 US, 2 Japan, 3 Europe; applied at reset
+	input   [1:0] lpf_mode,       // audio filter: 0 Model 1, 1 Model 2, 2 minimal, 3 none
+	input         fm_ym3438,      // FM chip: 0 YM2612 (ladder effect), 1 YM3438
+	input         hifi_pcm,
+	input         sprite_high,    // raise the per-line sprite limit (less flicker, not accurate)
+
 	// Video (clk_sys domain)
 	output  [7:0] r,
 	output  [7:0] g,
@@ -186,17 +193,26 @@ always @(posedge clk_sys) begin
 	end
 end
 
-// Region preference: US, then Japan, then Europe. No header region: US.
-// PAL is signalled to the VDP, but MCLK stays NTSC until REQ-ARCH-06 (PAL runs ~1% fast).
+// Console reset: external reset, a user reset (core_top), or ROM loading
+wire        sys_reset = reset | rom_loading;
+
+// Region: from the setting, or (auto) from the header preferring US, then Japan, then Europe (no
+// header region: US). Chosen while the console is held in reset (ROM loading, or a user reset,
+// which a region change triggers). PAL is signalled to the VDP, but MCLK stays NTSC until
+// REQ-ARCH-06 (PAL runs ~1% fast).
 reg export_r, pal_r;
 always @(posedge clk_sys) begin
-	reg old_loading;
-	old_loading <= rom_loading;
-	if (old_loading & ~rom_loading) begin
-		if      (hdr_u)  {export_r, pal_r} <= 2'b10;
-		else if (hdr_j)  {export_r, pal_r} <= 2'b00;
-		else if (hdr_e)  {export_r, pal_r} <= 2'b11;
-		else             {export_r, pal_r} <= 2'b10;
+	if (sys_reset) begin
+		case (region_sel)
+		2'd1: {export_r, pal_r} <= 2'b10;
+		2'd2: {export_r, pal_r} <= 2'b00;
+		2'd3: {export_r, pal_r} <= 2'b11;
+		default:
+			if      (hdr_u)  {export_r, pal_r} <= 2'b10;
+			else if (hdr_j)  {export_r, pal_r} <= 2'b00;
+			else if (hdr_e)  {export_r, pal_r} <= 2'b11;
+			else             {export_r, pal_r} <= 2'b10;
+		endcase
 	end
 end
 assign pal = pal_r;
@@ -217,7 +233,6 @@ wire  [3:0] GEN_R, GEN_G, GEN_B;
 wire  [1:0] gen_resolution;
 wire        GEN_YS_N, GEN_EDCLK, GEN_HBLANK, GEN_DOT_CE;
 wire [15:0] S32X_SL, S32X_SR;
-wire        sys_reset = reset | rom_loading;
 
 wire [15:0] CART_VDO;
 wire        CART_DTACK_N;
@@ -312,9 +327,9 @@ gen gen
 `else
 	.EN_32X_PWM(1'b1),
 `endif
-	.EN_HIFI_PCM(1'b0),
-	.LADDER(1'b1),
-	.LPF_MODE(2'b00),
+	.EN_HIFI_PCM(hifi_pcm),
+	.LADDER(~fm_ym3438),
+	.LPF_MODE(lpf_mode),
 	.FMBUSY_QUIRK(fmbusy_quirk),
 
 	.EXT_SL(S32X_SL),
@@ -323,7 +338,7 @@ gen gen
 	.DAC_LDATA(audio_l),
 	.DAC_RDATA(audio_r),
 
-	.OBJ_LIMIT_HIGH(1'b0),
+	.OBJ_LIMIT_HIGH(sprite_high),
 
 	.MEM_RDY(~GEN_MEM_BUSY),
 	.GG_RESET(1'b0),

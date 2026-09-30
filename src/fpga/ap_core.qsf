@@ -777,6 +777,7 @@ set_global_assignment -name VHDL_FILE core/rtl/S32X_MiSTer/rtl/mlab.vhd
 set_global_assignment -name VHDL_FILE core/rtl/S32X_MiSTer/rtl/CEGen.vhd
 set_global_assignment -name VHDL_FILE core/rtl/S32X_MiSTer/rtl/snd_mix.vhd
 set_global_assignment -name SYSTEMVERILOG_FILE core/rtl/S32X_MiSTer/rtl/cheatcodes.sv
+set_global_assignment -name SYSTEMVERILOG_FILE core/rtl/S32X_MiSTer/rtl/cofi.sv
 set_global_assignment -name SDC_FILE core/core_constraints.sdc
 # SRAM (fb_sram.sv): registers in the I/O cells, so pin timing doesn't depend on fabric routing
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to sram_a[*]
