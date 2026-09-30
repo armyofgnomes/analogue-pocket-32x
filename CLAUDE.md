@@ -23,23 +23,27 @@ the same commit.
 
 ## Current state
 
-M0 through M4 are done, and M6 (polish) is mostly done. Known-good builds are tagged (`v0.4.0`,
-`v0.4.1`; list in `docs/hardware-testing.md`). What works on hardware:
+M0 through M4 are done, and M6 (polish) is mostly done. Known-good builds are tagged and
+published as GitHub releases (`v0.4.0` to `v0.4.2`; list in `docs/hardware-testing.md`). `main`
+has unreleased changes waiting for the owner's regression-set run (`CHANGELOG.md`, "Unreleased").
+What works on hardware:
 - **Games:** most tested 32X and Genesis games play.
 - **Saves:** cart SRAM/EEPROM in `s32x_save_ram.sv`, served to the APF save slot.
 - **BIOS:** loaded from the SD card, with none in the bitstream; a 32X game shows a
   missing-BIOS screen if a file is absent.
 - **Settings:** the full `interact.json` menu.
 - **Dock:** HDMI output and player 2.
-- **Look:** the "32X" icon and platform banner.
+- **Look:** the "32X" icon and platform banner, and Analogue OS display modes.
 
 Open:
 - **M5:** no known open game issues (the last one, After Burner Complete's PWM weapon sounds,
-  was fixed by restoring the SH-2 UBC; see `docs/m4-debug-notes.md`). The formal test matrix
-  (REQ-QA-03) is still to do.
-- **PAL MCLK:** parked (`experiments/pal_reconfig/`).
-- **CI:** deferred by the owner.
-- **Area is tight:** synthesis estimate about 16.8k of 18.48k ALMs. Weigh the area cost of
+  was fixed by restoring the SH-2 UBC; see `docs/m4-debug-notes.md`). `docs/game-matrix.md`
+  lists the library; several games the owner has still need a first try.
+- **Owner's pending hardware checks:** power-off saves, interlace, 240-line modes, SSF2, soak
+  test, Pocket B (requirements marked WIP).
+- **Not planned:** PAL MCLK (parked, `experiments/pal_reconfig/`), Memories (doesn't fit,
+  `experiments/memories/`), 3-4 players (on request, REQ-INP-04). CI is deferred by the owner.
+- **Area is tight:** synthesis estimate about 17.0k of 18.48k ALMs. Weigh the area cost of
   any new feature.
 
 Hardware results are in `docs/test-log.md`. `docs/m4-debug-notes.md` holds the debugging
@@ -56,8 +60,11 @@ dist/                                             SD-card staging: icon.bin, pla
 output/bitstream.rbf_r                            Bit-reversed bitstream of the latest local build (not committed)
 src/fpga/ap_core.qpf / ap_core.qsf                Quartus project (Cyclone V 5CEBA4F23C8, top = apf_top)
 src/fpga/apf/                                     Analogue framework glue. Treat as vendor code; do not edit
-src/fpga/core/core_top.v                          APF glue: bridge, ROM loader, input, video formatter, audio
+src/fpga/core/core_top.v                          APF glue: bridge, ROM/BIOS loader, save RAM port, settings,
+                                                  input, video formatter, messages, audio
 src/fpga/core/s32x_system.sv                      Console: upstream gen + 32X + CART, SDRAM controller, fb_sram
+src/fpga/core/fb_sram.sv                          32X framebuffers in the async SRAM
+src/fpga/core/memtest.sv                          Memory self-test (tools/build.sh --memtest)
 src/fpga/core/s32x_sdram_front.sv                 32X SDRAM front end (line buffer + write queue)
 src/fpga/core/s32x_save_ram.sv                    Cart SRAM/EEPROM save RAM, second port on the APF bridge
 src/fpga/core/pll_core.v                          PLL wrapper: MCLK 53.69, SDRAM 107.39, video 26.85 (+90°) MHz
@@ -66,10 +73,11 @@ src/fpga/core/s32x_msg_rom.sv                     Font/text ROM for on-screen me
 src/fpga/core/rtl/S32X_MiSTer/                    Upstream submodule (pinned; patched at build time)
 src/fpga/core/rtl/patches/                        Our patches to upstream, applied in order
 src/fpga/core/rtl/agg23/                          agg23's MIT data_loader / sound_i2s / sync_fifo
-tools/                                            build.sh, release.sh, fingerprint.sh, prepare_upstream.sh,
-                                                  reverse_bits.py, package.py, gen_bios_mif.py (sims),
-                                                  gen_images.py, gen_msg_rom.py
-sim/                                              Testbenches (sim/run.sh <bench>; sim/system/run.sh for the full system)
+tools/                                            build.sh, release.sh, fingerprint.sh, check_io_regs.py,
+                                                  prepare_upstream.sh, reverse_bits.py, package.py,
+                                                  gen_bios_mif.py (sims), gen_images.py, gen_msg_rom.py
+sim/                                              Testbenches (sim/run.sh <bench>; sim/system/run.sh for the
+                                                  full system; sim/regress/run.sh for the regression)
 experiments/fit_s32x/                             REQ-ARCH-03/04 fit experiment and variants
 experiments/pal_reconfig/                         Parked PAL MCLK switching attempt (REQ-ARCH-06)
 experiments/memories/                             Memories feasibility study: not feasible for 32X (REQ-APF-08)
@@ -118,7 +126,9 @@ headless. There is no CI yet (REQ-TOOL-06, deferred).
 
 **One command:** `tools/build.sh` does all of the steps below. `tools/build.sh --memtest` builds the
 memory self-test variant (REQ-MEM-06). The script also:
-- fails if a constraint in `core_constraints.sdc` matches nothing;
+- fails if a constraint in `core_constraints.sdc` matches nothing, or if any SDRAM/SRAM pin
+  register isn't in its I/O cell (`tools/check_io_regs.py`);
+- records the sources' fingerprint in `output/build_info.txt`, which `tools/release.sh` checks;
 - prints the fit summary and synthesis' ALM estimate, the stable measure of design size (the
   fitter's figure swings by several hundred ALMs with timing effort);
 - holds the same lock as `sim/system/run.sh` while it patches the submodule and synthesizes, so
@@ -126,7 +136,8 @@ memory self-test variant (REQ-MEM-06). The script also:
 
 1. Compile: `cd src/fpga && quartus_sh --flow compile ap_core` (or open `ap_core.qpf` in the
    GUI). Output: `src/fpga/output_files/ap_core.rbf`. The pre-flow hook patches the upstream
-   submodule.
+   submodule. (A manual compile skips `build.sh`'s checks and fingerprint, so a release needs a
+   `build.sh` build.)
 2. `tools/reverse_bits.py` bit-reverses each byte of the `.rbf` into `output/bitstream.rbf_r`,
    the format the Pocket requires.
 3. `tools/package.py [--zip]` stages an SD-card tree in `build/sdcard/` (layout per
@@ -168,9 +179,8 @@ It needs the BIOS dumps in `bios/`.
 - Treat resource usage (ALMs, M10K, PLLs) as a first-class metric and report it with every build
   (synthesis estimate and fitter figure).
 - When the owner verifies a build on hardware:
-  - bump `core.json`'s version;
+  - bump `core.json`'s version and turn `CHANGELOG.md`'s "Unreleased" into that version, commit;
   - tag the commit `vX.Y.Z` (annotated), push it;
-  - add a `CHANGELOG.md` entry;
   - run `tools/release.sh vX.Y.Z` to create the GitHub release with the SD zip;
   - add it to "Known-good builds" in `docs/hardware-testing.md`;
   - log every test in `docs/test-log.md` (Pocket A: white original, B: transparent orange).

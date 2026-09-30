@@ -187,8 +187,14 @@ MiSTer-memory reference also trapped) are void.
 - `FAST_BIOS=1`: sim-only master BIOS patches. Skips the SDRAM fill/verify test (branch 0x1C0 to
   0x20C) and replaces the cartridge checksum loop with the sum computed from the ROM file (matches
   the header checksum; Kolibri 96CE, Doom D746). Saves about a second of simulated time.
-- `WORK=<dir>`: separate run directory, so two simulations can run at once (Doom runs in
-  `build/sim/doom`).
+- `WORK=<abs dir>`: separate run directory, so several simulations can run at once. The
+  submodule patching and compile step takes a lock shared with `tools/build.sh`, so runs and
+  builds started together can't re-patch the submodule under each other.
+- `BIOS_LOAD=1`: the BIOS memories start empty and the bench loads them through the core's load
+  port (patch 0011), as the Pocket does; by default they're preloaded from `.mif` (`BIOS_MIF`).
+  Either way the bench writes the BIOS through the port, so both variants have the same timing.
+- Length: `+frames=N` (default 3, about 60 ms: pass more for anything past the BIOS boot) or
+  `+stop_ms=N`.
 - `CHECKPOINT_AT=<ms>` then `RESTORE=1`: resume from a checkpoint (same compiled design only).
   Plusargs are fixed at checkpoint time; with `+trace_cfg`, windows can be changed at run time in
   `trace_cfg.txt`: `win_start win_end core_start core_end [rf_start rf_end [mlog slog]]` in ns,
@@ -199,8 +205,15 @@ MiSTer-memory reference also trapped) are void.
   `+rf_start/+rf_end` (master register-file writes), `+cart_log_ms` (SH-2 cart reads, first 60),
   `+mlog_ms/+slog_ms` (every bus access of the master/slave core; the slave log skips its BIOS
   delay-loop fetches at 0x1C0-0x1D7), R4000 lines (SH-2 reads of 0x20004000).
+- More options: `+pad6` (6-button pad on port 1), `+joy1=<hex>` (buttons held, gen JOY bit
+  order), `+m68k_start/+m68k_end` (68K bus cycles), `+sig_len=N` (BIOS read signature length,
+  default 100000). The progress line also counts save RAM and EEPROM accesses, PWM output
+  changes and the master UBC's BARAH changes.
 - Frames: `frame_N.ppm` in the run directory (320x224 header, 223 lines of data; pad when
   converting).
+- Pad test program: `sim/system/roms/make_padtest.py` (see `docs/hardware-testing.md`).
+- Regression: `sim/regress/run.sh` runs the pad test and Kolibri's BIOS boot against
+  `sim/regress/golden.txt` (about 20 minutes).
 - Gotchas: don't wait on `pgrep -f <text>` from a shell whose own command line contains that text;
   wait on the `vsimk` PID instead. Only one simulation per run directory.
 

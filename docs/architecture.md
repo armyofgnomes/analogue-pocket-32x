@@ -38,9 +38,9 @@ Genesis VDP output.
 
 | Resource | Pocket (Cyclone V **5CEBA4F23C8**) | MiSTer DE10-Nano (5CSEBA6) for comparison |
 |---|---|---|
-| Logic | ~18,480 ALMs (~49K LE) **(verify)** | ~41,910 ALMs (~110K LE) |
-| Block RAM | 308× M10K ≈ 3,080 Kbit (~385 KB) **(verify)** | ~5,570 Kbit (~680 KB) |
-| DSP | 66 blocks **(verify)** | 112 blocks |
+| Logic | 18,480 ALMs (~49K LE) | ~41,910 ALMs (~110K LE) |
+| Block RAM | 308× M10K = 3,153,920 bits (~385 KB) | ~5,570 Kbit (~680 KB) |
+| DSP | 66 blocks | 112 blocks |
 | External RAM | 64 MB SDRAM, 16-bit (`dram_*`)<br>2× 16 MB PSRAM / CellularRAM, 16-bit (`cram0_*`, `cram1_*`) **(verify sizes)**<br>256 KB async SRAM, 16-bit (`sram_*`, 17 addr bits) | 32/64/128 MB SDRAM add-on + 1 GB DDR3 via HPS |
 | Clock in | 74.25 MHz (`clk_74a`, `clk_74b`) | 50 MHz |
 | Video out | 24-bit RGB + DE/HS/VS to Analogue's scaler, fixed scaler modes defined in `video.json` | HDMI scaler |
@@ -276,10 +276,11 @@ and the SH-2 UBC disabled (since reverted, see `no_debug`); no audio trims. The 
 synthesis settings needed 19,963 ALMs (108 %) and didn't fit. The template sets
 `MUX_RESTRUCTURE OFF` and lacks upstream's area options, so every block came out 10-30 % larger.
 
-**Current (v0.4.1, 2026-09-30):** synthesis estimates 16,782 ALMs (91 %); the fitter reports
-17,300–18,100 (94–98 %) depending on how much it spends on timing, with packing difficulty
-"High", 209 M10K. Restoring the UBC adds back ~245 ALMs. Watch the synthesis estimate
-(`tools/build.sh` prints it) for real growth.
+**Current (2026-09-30, UBC restored):** synthesis estimates 17,016 ALMs (92 %); the fitter
+reports 17,300–18,100 (94–98 %) depending on how much it spends on timing, with packing difficulty
+"High"; 209 of 308 M10K, 23 of 66 DSP, 1 of 4 PLLs. Watch the synthesis estimate
+(`tools/build.sh` prints it) for real growth. Memories would need far more than what's left
+(`experiments/memories/`).
 
 The headroom target is a guideline for routability and timing. openFPGA-Genesis ships at 67 %,
 but plenty of Pocket cores ship above 90 %. Timing at 85 % is +1.3 ns, better than the

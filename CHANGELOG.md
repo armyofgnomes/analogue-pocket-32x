@@ -6,8 +6,9 @@ releases with the SD-card zip. Per-build hardware results are in `docs/test-log.
 ## Unreleased
 
 - Analogue OS display modes: CRT, three LCD styles, pinball neon and vacuum fluorescent.
-- Timing constraints for every pin (none unconstrained) and a build check that the memory pin
-  registers are in their I/O cells; a simulation regression script.
+- Every pin is covered in the timing constraints (the memory, bridge, video and audio pins as
+  documented exceptions, so nothing is left unconstrained), and the build checks that the memory
+  pin registers are in their I/O cells; a simulation regression script.
 - Memories studied and found not to fit alongside the 32X (`experiments/memories/`).
 
 ## 0.4.2 (2026-09-30)
