@@ -1,0 +1,41 @@
+diff --git a/rtl/32X/32X.sv b/rtl/32X/32X.sv
+index a3a767d..48c9291 100644
+--- a/rtl/32X/32X.sv
++++ b/rtl/32X/32X.sv
+@@ -8,6 +8,7 @@ module S32X
+ 	input             BIOS_WE,
+ 	input      [12:1] BIOS_A,
+ 	input      [15:0] BIOS_D,
++	output            ADEN,           // Pocket: adapter enabled (the game switched to 32X mode)
+ 	
+ 	input             VCLK,
+ 	input      [23:1] VA,
+@@ -286,6 +287,7 @@ module S32X
+ 		.BIOS_WE(BIOS_WE),
+ 		.BIOS_A(BIOS_A),
+ 		.BIOS_D(BIOS_D),
++		.ADEN_O(ADEN),
+ 
+ 		.VCLK(CE_R),
+ 		.VA(VA),
+diff --git a/rtl/32X/IF.sv b/rtl/32X/IF.sv
+index 8dd9faf..aeb49d2 100644
+--- a/rtl/32X/IF.sv
++++ b/rtl/32X/IF.sv
+@@ -9,6 +9,7 @@ module S32X_IF
+ 	input             BIOS_WE,
+ 	input      [12:1] BIOS_A,
+ 	input      [15:0] BIOS_D,
++	output            ADEN_O,         // Pocket: adapter enabled (the game switched to 32X mode)
+ 
+ 	input             VCLK,
+ 	input      [23:1] VA,
+@@ -182,6 +183,8 @@ module S32X_IF
+ 		UWR_N_SYNC <= {UWR_N_SYNC[0],UWR_N};
+ 	end
+ 	
++	assign ADEN_O = ADCR.ADEN;
++
+ 	wire CAS0_F = CAS0_N_SYNC == 2'b10;
+ 	wire LWR_F  = LWR_N_SYNC == 2'b10;
+ 	wire UWR_F  = UWR_N_SYNC == 2'b10;

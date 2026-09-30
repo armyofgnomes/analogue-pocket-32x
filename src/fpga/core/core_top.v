@@ -570,6 +570,20 @@ data_loader #(
     .write_data             ( bios_wr_data )
 );
 
+// Which BIOS files arrived. The Pocket doesn't enforce `required` for these fixed-filename
+// slots, so a missing file is reported on screen (below) once a game turns the 32X on.
+    reg             bios_g_ok = 0, bios_m_ok = 0, bios_s_ok = 0;
+    reg             bios_loading_d = 0;
+always @(posedge clk_sys) begin
+    bios_loading_d <= rom_loading;
+    if (rom_loading & ~bios_loading_d) {bios_g_ok, bios_m_ok, bios_s_ok} <= 3'b000;
+    else if (bios_wr & rom_loading) begin
+        if (bios_wr_addr[12])       bios_g_ok <= 1;
+        else if (!bios_wr_addr[11]) bios_m_ok <= 1;
+        else                        bios_s_ok <= 1;
+    end
+end
+
 ////////////////////////////////////////////////////////////////////////////////////////
 // Save data (non-volatile data slot 10 at bridge address 0x60000000, see data.json)
 // The 64 KB save file is loaded while the ROM loads (the console is held in reset until every
@@ -680,6 +694,7 @@ endfunction
     wire    [1:0]   sys_resolution;
     wire    [15:0]  sys_audio_l, sys_audio_r;
     wire    [35:0]  memtest_status;
+    wire            sys_aden;
 
 s32x_system system (
     .clk_sys        ( clk_sys ),
@@ -747,8 +762,17 @@ s32x_system system (
     .SRAM_UB_N      ( sram_ub_n ),
     .SRAM_LB_N      ( sram_lb_n ),
 
+    .s32x_aden      ( sys_aden ),
     .memtest_status ( memtest_status )
 );
+
+// Missing-BIOS screen: shown once a 32X game switches the adapter on while a BIOS file is
+// missing (Genesis games never do, and don't need the BIOS). Latched until the next load.
+    reg             bios_err = 0;
+always @(posedge clk_sys) begin
+    if (rom_loading) bios_err <= 0;
+    else if (sys_aden && !(bios_g_ok && bios_m_ok && bios_s_ok)) bios_err <= 1;
+end
 
 // Memory self-test overlay (MEMTEST builds), over the Genesis picture:
 //   Rows y = 8 + 10k (k = 0..7, 8 px tall): SRAM timing setting k (table in memtest.sv).
@@ -782,6 +806,23 @@ always @(posedge clk_sys) begin
         end
     end
 end
+// Message text (s32x_msg_rom.sv, from tools/gen_msg_rom.py): the cell's character, then its
+// font line. Two clocks of ROM latency, well inside one console pixel (8 or 10 clocks), during
+// which ov_x/ov_y are steady.
+    wire    [8:0]   msg_x   = sys_resolution[0] ? ov_x - 9'd32 : ov_x;
+    wire            msg_in  = msg_x < 9'd256 && ov_y < 9'd224;
+    wire    [4:0]   msg_row = ov_y[7:3];
+    wire    [2:0]   msg_px  = msg_x[2:0];
+    wire    [5:0]   msg_char;
+    wire    [7:0]   msg_font_q;
+s32x_msg_rom msg_rom (
+    .clk        ( clk_sys ),
+    .text_addr  ( {msg_row, msg_x[7:3]} ),
+    .text_q     ( msg_char ),
+    .font_addr  ( {msg_char, ov_y[2:0]} ),
+    .font_q     ( msg_font_q )
+);
+
 always @(*) begin
     ov_on  = 0;
     ov_rgb = 24'h000000;
@@ -799,6 +840,17 @@ always @(*) begin
                  (ov_x < memtest_status[26:19]) ? 24'h00FF00 : 24'h204020;
     end
 `endif
+    if (bios_err) begin
+        // 32 x 28 text cells of 8x8, centered in H40
+        ov_on  = 1;
+        ov_rgb = 24'h000000;
+        if (msg_in && msg_font_q[~msg_px])
+            ov_rgb = msg_row == 5'd8  ? 24'hFFFF40 :                          // title
+                     msg_row == 5'd14 ? (bios_g_ok ? 24'h40FF40 : 24'hFF4040) :
+                     msg_row == 5'd15 ? (bios_m_ok ? 24'h40FF40 : 24'hFF4040) :
+                     msg_row == 5'd16 ? (bios_s_ok ? 24'h40FF40 : 24'hFF4040) :
+                                        24'hE0E0E0;
+    end
 end
 
 ////////////////////////////////////////////////////////////////////////////////////////

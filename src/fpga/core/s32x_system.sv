@@ -96,6 +96,8 @@ module s32x_system
 
 	// Memory self-test status (MEMTEST builds; zero otherwise):
 	// {sdram_fail, sdram_passes[15:0], sweep_fail[7:0], sweep_done[7:0], sweep_cur[2:0]}
+	output        s32x_aden,      // the game has switched the 32X adapter on (32X mode)
+
 	output [35:0] memtest_status
 );
 
@@ -437,6 +439,7 @@ assign {C_VA, C_VDI, C_LWR_N, C_UWR_N, C_CE0_N, C_CAS0_N, C_CAS2_N, C_ASEL_N} =
 assign {S32X_SL, S32X_SR} = '0;
 assign {S32X_R, S32X_G, S32X_B, S32X_YSO_N, S32X_HBLANK, S32X_DOT_CE} = '0;
 assign s32x_sdr_line = 1'b0;                 // memtest uses single-word accesses on port 0
+assign s32x_aden = 1'b0;
 `else
 ///////////////////////////////////////////////////
 // 32X
@@ -473,6 +476,7 @@ S32X #(
 	.BIOS_WE(bios_wr),
 	.BIOS_A(bios_wr_addr),
 	.BIOS_D(bios_wr_data),
+	.ADEN(s32x_aden),
 
 	.VCLK(GEN_VCLK_CE),
 	.VA(GEN_VA),
