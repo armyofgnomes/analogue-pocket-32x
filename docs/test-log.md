@@ -2,6 +2,9 @@
 
 One row per test run. Label Pockets A/B/C… and keep the labels stable.
 
+Pockets: **A** = white original release (most tests; rows with `?` are A); **B** = transparent
+orange release (second-unit checks).
+
 | Date | Build | Pocket | Firmware | Handheld/Dock | Result |
 |---|---|---|---|---|---|
 | 2026-09-28 | e3dc5e7 | ? | ? | ? | Template core packaged with `package.py` using the original shortname `Core Template`: "Load error in 'core'. Error in core setup." Cause: `Cores/` folder name didn't match `core.json` |

@@ -91,5 +91,7 @@ the tag) and `tools/package.py --zip`. Every build commit also contains its bits
 
 ## Multiple Pockets
 
+Owner's units: **A** white original release (primary), **B** transparent orange release.
+
 Marginal timing often shows up on only one unit. For milestone builds and anything
 touching clocks, PLLs or memory controllers, test on at least two Pockets (REQ-QA-02).
