@@ -72,6 +72,7 @@ tools/                                            build.sh, release.sh, fingerpr
 sim/                                              Testbenches (sim/run.sh <bench>; sim/system/run.sh for the full system)
 experiments/fit_s32x/                             REQ-ARCH-03/04 fit experiment and variants
 experiments/pal_reconfig/                         Parked PAL MCLK switching attempt (REQ-ARCH-06)
+experiments/memories/                             Memories feasibility study: not feasible for 32X (REQ-APF-08)
 src/fpga/core/core_bridge_cmd.v                   Host/target command handler (data slots, status). Vendor-provided
 ```
 

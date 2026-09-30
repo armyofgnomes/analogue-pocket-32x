@@ -29,7 +29,8 @@ Version history: [`CHANGELOG.md`](CHANGELOG.md).
   about 1% fast. PAL clock switching is parked (`experiments/pal_reconfig/`).
 - **Not yet seen on hardware:** interlaced video (e.g. Sonic 2's two-player mode), the 240-line
   PAL picture modes, and Super Street Fighter II's cartridge banking.
-- **No save states (Memories)** or sleep.
+- **No save states (Memories)** or sleep: they don't fit the Pocket's FPGA alongside the 32X
+  (measured in [`experiments/memories/`](experiments/memories/README.md)).
 - Untested 32X games are listed in [`docs/game-matrix.md`](docs/game-matrix.md).
 
 ## Using a build
