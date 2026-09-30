@@ -100,7 +100,7 @@ Update the status column in the same commit that completes a requirement.
 |---|---|---|---|---|
 | REQ-GEN-01 | P0 | 68000 (fx68k), Z80 (T80), VDP, YM2612 (jt12), PSG (jt89) integrated from the chosen base | HW | DONE |
 | REQ-GEN-02 | P0 | Plain Genesis/Mega Drive ROMs boot and play (non-32X carts pass through when 32X is disabled) | HW | DONE |
-| REQ-GEN-03 | P0 | Region/version register from header auto-detect + override | HW | WIP |
+| REQ-GEN-03 | P0 | Region/version register from header auto-detect + override | HW | DONE: header auto-detect (US > JP > EU) plus the Region setting; verified on hardware with Mystic Defender |
 | REQ-GEN-04 | P1 | Cart mappers needed by 32X carts and common Genesis carts (SSF2 banking at minimum). EEPROM carts as in base core | HW | TODO |
 
 ## 8. 32X hardware (S32X), milestones M3–M5
@@ -141,7 +141,7 @@ Update the status column in the same commit that completes a requirement.
 | ID | Pri | Requirement | Verify | Status |
 |---|---|---|---|---|
 | REQ-INP-01 | P0 | Pocket controls → Genesis 3-button pad (A/B/C/Start) via `input.json` mapping | HW | DONE |
-| REQ-INP-02 | P0 | 6-button pad (X/Y/Z/Mode) with correct TH-toggle protocol. Toggle for games that break with 6-button | HW | TODO |
+| REQ-INP-02 | P0 | 6-button pad (X/Y/Z/Mode) with correct TH-toggle protocol. Toggle for games that break with 6-button | HW | DONE (aa35ca0): upstream pad protocol, 6-Button Pad setting (off by default; X/Y/Z/Mode on Pocket L/X/R/Select). Verified with the pad test program and games that enable 6-button mode in their options |
 | REQ-INP-03 | P1 | Player 2 via Dock controllers | HW | TODO |
 
 ## 12. Saves (SAVE)
