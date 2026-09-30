@@ -24,9 +24,10 @@ the same commit.
 M0 through M4 are done: tooling, our own build on hardware, Genesis games, the memory subsystem,
 and 32X games booting. Core 0.2.0 (hardware-verified at 46d8920) plays most tested 32X and
 Genesis games with timing met at about 92% of ALMs. M5 (library playability) is in progress with
-one open item, After Burner's weapon sounds, which is postponed. Saves (REQ-SAVE-01/02) are next
-in the owner's priority order: cart SRAM and EEPROM live in `s32x_save_ram.sv`, a dual-clock
-block RAM that the APF save slot (data slot 10) reads and writes directly. See `docs/test-log.md`
+one open item, After Burner's weapon sounds, which is postponed. Saves work on hardware
+(b94d358): cart SRAM and EEPROM live in `s32x_save_ram.sv`, a dual-clock block RAM that the APF
+save slot (data slot 10) reads and writes directly. Next in the owner's priority order: the
+remaining requirements. See `docs/test-log.md`
 for hardware results and `docs/m4-debug-notes.md` for the debugging history, the simulation
 toolkit and the After Burner notes. The repo started as `open-fpga/core-template` v1.3.0 (commit
 `da3a021`).

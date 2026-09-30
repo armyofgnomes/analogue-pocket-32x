@@ -11,7 +11,8 @@ memories, clocks, video and the Analogue Pocket Framework (APF).
 - Most 32X games tested so far are playable: Doom, Kolibri, Knuckles' Chaotix, NBA Jam TE,
   Pitfall, Primal Rage, Spider-Man: Web of Fire and Virtua Fighter (see
   [`docs/test-log.md`](docs/test-log.md)). The current milestone (M5) is the rest of the library.
-- No save support (cartridge SRAM/EEPROM contents aren't kept), settings menu or PAL timing yet.
+- Cartridge saves (battery SRAM and EEPROM) are kept in `.sav` files, in MiSTer's format.
+- No settings menu or PAL timing yet.
 
 Progress, requirements and hardware test results are tracked in [`docs/`](docs/):
 [`requirements.md`](docs/requirements.md) (milestones), [`test-log.md`](docs/test-log.md)
