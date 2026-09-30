@@ -3,6 +3,13 @@
 Versions follow `core.json`. Hardware-verified versions from 0.4.0 on are git tags and GitHub
 releases with the SD-card zip. Per-build hardware results are in `docs/test-log.md`.
 
+## Unreleased
+
+- Analogue OS display modes: CRT, three LCD styles, pinball neon and vacuum fluorescent.
+- Timing constraints for every pin (none unconstrained) and a build check that the memory pin
+  registers are in their I/O cells; a simulation regression script.
+- Memories studied and found not to fit alongside the 32X (`experiments/memories/`).
+
 ## 0.4.2 (2026-09-30)
 
 - After Burner Complete's cannon and missile sounds play. The game keeps its PWM sample index in

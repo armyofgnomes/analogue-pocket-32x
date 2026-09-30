@@ -14,6 +14,7 @@ memories, clocks, video and the Analogue Pocket Framework (APF).
 - Cartridge saves (battery SRAM and EEPROM) are kept in `.sav` files, in MiSTer's format.
 - Settings: region, 6-button pad, audio filter, FM chip, HiFi PCM, composite blend, sprite limit, reset.
 - Works handheld and in the Analogue Dock (HDMI, second controller as player 2).
+- Analogue OS display modes (CRT and LCD looks).
 - No PAL timing: European games run on the NTSC master clock, about 1% fast.
 
 Progress, requirements and hardware test results are tracked in [`docs/`](docs/):
