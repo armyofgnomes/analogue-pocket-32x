@@ -57,7 +57,7 @@ Update the status column in the same commit that completes a requirement.
 | REQ-ARCH-03 | P0 | **Fit experiment:** synthesize the S32X system logic (no MiSTer `sys/`) for 5CEBA4F23C8 with framebuffers stubbed out of BRAM. Record ALM / M10K / DSP / PLL usage and Fmax | FIT | DONE |
 | REQ-ARCH-04 | P0 | If REQ-ARCH-03 is over budget: a reduction plan with estimated savings per item, executed until fit with ≥ ~10% ALM headroom for routing | FIT | DONE |
 | REQ-ARCH-05 | P0 | Clock plan: PLL outputs for MCLK (NTSC), memory clock, video clock (+90°), 12.288 MHz audio; CDC points listed | FIT | DONE: as built in `pll_core.v` and `architecture.md` §5 (MCLK 53.69, SDRAM 2× MCLK, video MCLK/2 + 90° copy; audio MCLK from `clk_74a` in `sound_i2s`), with the CDC points listed there |
-| REQ-ARCH-06 | P1 | PAL MCLK (53.203424 MHz) support: second PLL config or dynamic reconfiguration | HW | TODO |
+| REQ-ARCH-06 | P1 | PAL MCLK (53.203424 MHz) support: second PLL config or dynamic reconfiguration | HW | TODO (parked): the core PLL is reconfigurable (428c967) and PAL needs only a different fractional division, but Altera's reconfiguration controller costs 561 ALMs once driven (99 % full, setup missed). Options (a minimal DPRIO writer, or a second fixed PLL with clock switching) in `experiments/pal_reconfig/README.md`. Until then PAL games run on the NTSC MCLK, ~1 % fast |
 
 ## 4. APF integration and packaging (APF)
 

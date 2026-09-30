@@ -19,6 +19,11 @@ cd "$work"
 rm -rf work
 "$QUESTA_BIN/vlib" work >/dev/null
 files=$(sed -e 's/#.*//' -e '/^\s*$/d' "$repo/sim/$bench/files.f" | sed "s#^#$repo/#")
-"$QUESTA_BIN/vlog" -sv -quiet -L "$QUESTA_BIN/../intel/verilog/altera_mf" ${VLOG_DEFS:-} $files "$repo/sim/$bench/tb_$bench.sv"
-"$QUESTA_BIN/vsim" -c -quiet -L "$QUESTA_BIN/../intel/verilog/altera_mf" ${VSIM_ARGS:-} "tb_$bench" -do "run -all; quit -f" | tee sim.log | grep -vE "^# (Loading|//)"
+# Precompiled Intel libraries: altera_mf always; a bench's libs.txt adds more (e.g. altera_lnsim)
+libs=(-L "$QUESTA_BIN/../intel/verilog/altera_mf")
+if [ -f "$repo/sim/$bench/libs.txt" ]; then
+    for l in $(sed -e 's/#.*//' "$repo/sim/$bench/libs.txt"); do libs+=(-L "$QUESTA_BIN/../intel/verilog/$l"); done
+fi
+"$QUESTA_BIN/vlog" -sv -quiet "${libs[@]}" ${VLOG_DEFS:-} $files "$repo/sim/$bench/tb_$bench.sv"
+"$QUESTA_BIN/vsim" -c -quiet "${libs[@]}" ${VSIM_ARGS:-} "tb_$bench" -do "run -all; quit -f" | tee sim.log | grep -vE "^# (Loading|//)"
 grep -q "^# PASS" sim.log

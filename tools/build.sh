@@ -37,5 +37,8 @@ if grep -E "Warning \(3321(74|49)\).*core_constraints\.sdc" output_files/ap_core
     exit 1
 fi
 grep -E "Logic utilization|Total RAM Blocks|Total DSP" output_files/ap_core.fit.summary
+# The fitter's figure includes ALMs spent on timing when there's room; synthesis' estimate is the
+# stable measure of how much logic the design really has.
+grep -E "Estimate of Logic utilization" output_files/ap_core.map.rpt | sed 's/  */ /g'
 python3 "$repo/tools/reverse_bits.py"
 python3 "$repo/tools/package.py" --zip

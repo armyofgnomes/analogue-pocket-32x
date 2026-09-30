@@ -545,30 +545,16 @@ data_loader #(
 );
 
 ////////////////////////////////////////////////////////////////////////////////////////
-// 32X BIOS loading (data slots 20-22 at bridge address 0x20000000, see data.json): the BIOS
+// 32X BIOS loading (data slots 20-22 at bridge address 0x1F000000, see data.json): the BIOS
 // isn't built into the bitstream (REQ-APF-03b). Master SH-2 BIOS at +0x0000 (2 KB), slave at
-// +0x0800 (1 KB), 68K BIOS at +0x1000 (256 B). Loaded with the ROM, while the console is held
-// in reset.
+// +0x0800 (1 KB), 68K BIOS at +0x1000 (256 B). They come through the ROM loader (its 0x1xxxxxxx
+// range, above any ROM) and are steered to the BIOS memories instead of SDRAM, while the console
+// is held in reset.
 
-    wire            bios_wr;
-    wire    [27:0]  bios_wr_addr;
-    wire    [15:0]  bios_wr_data;
-data_loader #(
-    .ADDRESS_MASK_UPPER_4       ( 4'h2 ),
-    .ADDRESS_SIZE               ( 28 ),
-    .WRITE_MEM_CLOCK_DELAY      ( 4 ),
-    .OUTPUT_WORD_SIZE           ( 2 )
-) bios_loader (
-    .clk_74a                ( clk_74a ),
-    .clk_memory             ( clk_sys ),
-    .bridge_wr              ( bridge_wr ),
-    .bridge_endian_little   ( bridge_endian_little ),
-    .bridge_addr            ( bridge_addr ),
-    .bridge_wr_data         ( bridge_wr_data ),
-    .write_en               ( bios_wr ),
-    .write_addr             ( bios_wr_addr ),
-    .write_data             ( bios_wr_data )
-);
+    wire            rom_is_bios  = rom_wr_addr[27:24] == 4'hF;
+    wire            bios_wr      = rom_wr & rom_is_bios;
+    wire    [27:0]  bios_wr_addr = rom_wr_addr;
+    wire    [15:0]  bios_wr_data = rom_wr_data;
 
 // Which BIOS files arrived. The Pocket doesn't enforce `required` for these fixed-filename
 // slots, so a missing file is reported on screen (below) once a game turns the 32X on.
@@ -703,7 +689,7 @@ s32x_system system (
     .reset          ( ~reset_n_s | ~pll_locked_sys | user_reset_s ),
 
     .rom_loading    ( rom_loading ),
-    .rom_wr         ( rom_wr ),
+    .rom_wr         ( rom_wr & ~rom_is_bios ),
     .rom_wr_addr    ( rom_wr_addr[23:0] ),
     .rom_wr_data    ( rom_wr_data ),
 

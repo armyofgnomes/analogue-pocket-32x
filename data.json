@@ -36,7 +36,7 @@
                     "bin"
                 ],
                 "size_exact": 256,
-                "address": "0x20001000"
+                "address": "0x1F001000"
             },
             {
                 "id": 21,
@@ -48,7 +48,7 @@
                     "bin"
                 ],
                 "size_exact": 2048,
-                "address": "0x20000000"
+                "address": "0x1F000000"
             },
             {
                 "id": 22,
@@ -60,7 +60,7 @@
                     "bin"
                 ],
                 "size_exact": 1024,
-                "address": "0x20000800"
+                "address": "0x1F000800"
             }
         ]
     }
