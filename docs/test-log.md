@@ -32,3 +32,4 @@ orange release (second-unit checks).
 | 2026-09-30 | 1f659b0 | A | ? | Handheld | **Pass.** BIOS through the ROM loader (new slot addresses): 32X games boot, missing-BIOS screen still correct, Genesis games and saves fine. No regressions. PAL reconfiguration parked (owner agrees) |
 | 2026-09-30 | 66bccc4 | A | ? | Handheld | **Pass (M5).** SH-2 UBC restored: After Burner Complete's cannon and missile sounds play; audio correct |
 | 2026-09-30 | 9f015d2 (0bdbc3c bitstream) | A | ? | Handheld | **Pass.** Display modes (video.json): all six modes work on Kolibri. Wily Wars (H32) and the Dock not checked |
+| 2026-10-02 | 6dfcb82 (v0.4.3) | A | ? | Handheld | **Pass (smoke test, v0.4.3).** Core loads; info screen shows 0.4.3; 32X and Genesis games play normally. First public release |

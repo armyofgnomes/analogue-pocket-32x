@@ -24,7 +24,7 @@ Update the status column in the same commit that completes a requirement.
 | **M4: 32X boots** ✅ 2026-09-29 (commercial games boot and play: Kolibri, Doom, Pitfall, Virtua Fighter, Spider-Man, Primal Rage) | Both SH-2s run BIOS code | 32X BIOS/security screen shown. A simple 32X homebrew/test ROM runs |
 | **M5: Games playable** (in progress: most titles tested play: Kolibri, Doom, Chaotix, NBA Jam TE, Pitfall, Primal Rage, Spider-Man, Virtua Fighter, Mortal Kombat II and a wider set; no known open issues since After Burner's weapon sounds were fixed in 66bccc4; `docs/game-matrix.md` lists the library, with several owned games still to try) | Commercial 32X library playable | Test-matrix games (REQ-QA-03) boot and play with correct video/audio |
 | **M6: Polish** (mostly done: saves, settings, dock, icon, display modes done; PAL parked; owner's hardware checks pending) | Saves, settings, PAL, dock, accuracy fixes | P1 requirements done |
-| **M7: Release (optional)** (BIOS runtime-loaded since v0.4.0; private GitHub releases from v0.4.0; going public is the owner's call) | Public release, only if BIOS is runtime-loaded | REQ-APF-03b and REQ-DIST-* done |
+| **M7: Release (optional)** (BIOS runtime-loaded since v0.4.0; first public release v0.4.3) | Public release, only if BIOS is runtime-loaded | REQ-APF-03b and REQ-DIST-* done |
 
 ---
 
@@ -37,7 +37,7 @@ Update the status column in the same commit that completes a requirement.
 | REQ-TOOL-03 | P0 | Script to assemble an SD-card-ready package (`Cores/`, `Platforms/`, `Assets/` layout) from repo files + built bitstream | HW | DONE |
 | REQ-TOOL-04 | P1 | Simulation setup for core logic (Verilator and/or GHDL + Icarus/ModelSim for mixed VHDL/Verilog), runnable in Claude's container | SIM | DONE |
 | REQ-TOOL-05 | P1 | Build-ID and version stamping (template's `build_id_gen.tcl`) surfaced in `core.json` versions/release notes | DOC | DONE: the template's `build_id_gen.tcl` stamps every bitstream with its build date/time; releases are identified by the `core.json` version, the annotated tag and the build fingerprint `tools/release.sh` checks. A build ID in the version string isn't needed |
-| REQ-TOOL-06 | P2 | CI build (GitHub Actions with a Quartus container) producing the `.rbf_r` and zip artifact | FIT | TODO (deferred by the owner, 2026-09-30). Findings: Intel/Altera's Quartus installers return 403 to scripted downloads (login required), so GitHub-hosted runners would need a community Quartus Docker image (a different version than our 25.1std, so fit/timing may differ) and use the private repo's 2,000 free minutes/month (~30-45 min per build). Alternatives: a self-hosted runner on the owner's PC (same Quartus, unlimited), or no CI and a GitHub Release per hardware-verified build. Meanwhile every build commit already carries its `output/bitstream.rbf_r` |
+| REQ-TOOL-06 | P2 | CI build (GitHub Actions with a Quartus container) producing the `.rbf_r` and zip artifact | FIT | TODO (deferred by the owner, 2026-09-30). Findings: Intel/Altera's Quartus installers return 403 to scripted downloads (login required), so GitHub-hosted runners would need a community Quartus Docker image (a different version than our 25.1std, so fit/timing may differ) (~30-45 min per build). Alternatives: a self-hosted runner on the owner's PC (same Quartus, unlimited), or no CI and a GitHub Release per hardware-verified build. Meanwhile every hardware-verified build is a GitHub release |
 
 ## 2. Legal and provenance (LEGAL)
 
@@ -170,7 +170,7 @@ bitstream), so publishing needs these plus a look at the upstream licensing (arc
 
 | ID | Pri | Requirement | Verify | Status |
 |---|---|---|---|---|
-| REQ-DIST-01 | P1 | Release zip matching the Pocket SD-card layout, installable by unzip-to-root | HW | DONE: `tools/package.py --zip` makes the unzip-to-root SD tree; `tools/release.sh` publishes it as a GitHub release per hardware-verified tag (releases v0.4.0 to v0.4.2, private repo for now) |
+| REQ-DIST-01 | P1 | Release zip matching the Pocket SD-card layout, installable by unzip-to-root | HW | DONE: `tools/package.py --zip` makes the unzip-to-root SD tree; `tools/release.sh` publishes it as a GitHub release per hardware-verified tag (first public release v0.4.3) |
 | REQ-DIST-02 | P1 | `README.md` rewritten: features, install, BIOS filenames and placement, known issues, credits | DOC | DONE: README covers status, install, BIOS names and placement, settings, known issues and limits, building, simulation, how the core was made, credits and license |
 | REQ-DIST-03 | P1 | `updaters.json` / inventory-compatible metadata so the core shows up in community updaters (e.g. pocket_updater, openFPGA Library) | DOC | TODO |
 | REQ-DIST-04 | P1 | Semantic versioning and release notes per release | DOC | DONE: semantic versions in `core.json` and annotated tags, release notes from the tag message, and `CHANGELOG.md` |

@@ -7,8 +7,8 @@
             "description": "Sega 32X (Genesis + 32X). Work in progress: Genesis and most tested 32X games play, with saves.",
             "author": "armyofgnomes",
             "url": "https://github.com/armyofgnomes/analogue-pocket-32x",
-            "version": "0.4.2",
-            "date_release": "2026-09-30"
+            "version": "0.4.3",
+            "date_release": "2026-10-02"
         },
         "framework": {
             "target_product": "Analogue Pocket",

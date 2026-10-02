@@ -24,8 +24,8 @@ the same commit.
 ## Current state
 
 M0 through M4 are done, and M6 (polish) is mostly done. Known-good builds are tagged and
-published as GitHub releases (`v0.4.0` to `v0.4.2`; list in `docs/hardware-testing.md`). `main`
-has unreleased changes waiting for the owner's regression-set run (`CHANGELOG.md`, "Unreleased").
+published as GitHub releases from `v0.4.3`, the first public one (list in
+`docs/hardware-testing.md`; v0.4.0 to v0.4.2 exist only in the private development repo).
 What works on hardware:
 - **Games:** most tested 32X and Genesis games play.
 - **Saves:** cart SRAM/EEPROM in `s32x_save_ram.sv`, served to the APF save slot.

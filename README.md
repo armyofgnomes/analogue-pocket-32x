@@ -5,8 +5,8 @@ It is built on the MiSTer
 [S32X core](https://github.com/MiSTer-devel/S32X_MiSTer) (Genesis + 32X), adapted to the Pocket's
 memories, clocks, video and the Analogue Pocket Framework (APF).
 
-**Status: work in progress.** Hardware-verified builds are published as GitHub releases (the repo is
-private for now).
+**Status: work in progress.** Hardware-verified builds are published as
+[GitHub releases](https://github.com/armyofgnomes/analogue-pocket-32x/releases).
 
 - Genesis games run with video, audio and controls.
 - Every 32X game tested so far is playable, including After Burner Complete, Doom, Kolibri,

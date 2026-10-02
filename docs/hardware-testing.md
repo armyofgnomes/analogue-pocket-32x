@@ -82,17 +82,15 @@ Publishing, after the owner verifies a build:
    tag's sources (`output/build_info.txt`, written by `tools/build.sh`), packages the tag's tree
    with it and creates the release. `DRY_RUN=1` does everything except publishing.
 
-Build outputs (bitstream, `.sof`/`.rbf`, `apf/build_id.mif`) aren't committed since v0.4.2:
-releases are the archive. Commits up to v0.4.2 still contain their bitstreams.
+Build outputs (bitstream, `.sof`/`.rbf`, `apf/build_id.mif`) aren't committed: releases are the
+archive.
 
 | Tag | Commit | Highlights |
 |---|---|---|
-| v0.4.0 | see `git show v0.4.0` | BIOS loaded from the SD card (none in the bitstream), missing-BIOS screen, settings menu, saves, icon/banner; verified on two Pockets and the Dock |
-| v0.4.1 | see `git show v0.4.1` | Reconfigurable core PLL (idle, NTSC), timing fixes (mid-edge enable, synchronizers, SDC check), BIOS via the ROM loader |
-| v0.4.2 | see `git show v0.4.2` | SH-2 UBC restored: After Burner Complete's weapon sounds (PWM) fixed |
+| v0.4.3 | see `git show v0.4.3` | First public release: display modes, pin timing constraints, LICENSE/NOTICE in the core folder |
 
-Releases v0.4.0 to v0.4.2 were created afterwards from their tags (each packaged from its own
-tree, which then still contained its bitstream).
+v0.4.0 to v0.4.2 were released only in the private development repository, before this public
+one; they aren't published here (their entries remain in `CHANGELOG.md`).
 
 ## Regression set (REQ-QA-04)
 

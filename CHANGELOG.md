@@ -1,9 +1,12 @@
 # Changelog
 
-Versions follow `core.json`. Hardware-verified versions from 0.4.0 on are git tags and GitHub
-releases with the SD-card zip. Per-build hardware results are in `docs/test-log.md`.
+Versions follow `core.json`. Hardware-verified versions from 0.4.3 on are git tags and GitHub
+releases with the SD-card zip; 0.4.0 to 0.4.2 were released only in the private development
+repository, before this public one. Per-build hardware results are in `docs/test-log.md`.
 
-## Unreleased
+## 0.4.3 (2026-10-02)
+
+First public release.
 
 - Analogue OS display modes: CRT, three LCD styles, pinball neon and vacuum fluorescent.
 - Every pin is covered in the timing constraints (the memory, bridge, video and audio pins as
