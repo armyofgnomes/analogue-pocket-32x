@@ -53,6 +53,9 @@ def main() -> int:
         shutil.copy2(REPO / name, core / name)
     shutil.copy2(bitstream, core / "bitstream.rbf_r")
     shutil.copy2(REPO / "dist/icon.bin", core / "icon.bin")
+    # The GPL and the BSD/MIT notices of the third-party RTL must travel with the bitstream.
+    shutil.copy2(REPO / "LICENSE", core / "LICENSE.txt")
+    shutil.copy2(REPO / "NOTICE.txt", core / "NOTICE.txt")
 
     plat = out / "Platforms"
     (plat / "_images").mkdir(parents=True)

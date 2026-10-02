@@ -76,9 +76,13 @@ results (§4). Rationale:
 - openFPGA-Genesis and openfpga-megacd remain the reference for the APF plumbing (loaders,
   bridge, I2S, video modes), which we reimplement or borrow around S32X_MiSTer's `gen`.
 
-**Licensing (checked 2026-09-28):** S32X_MiSTer has **no top-level LICENSE**. fx68k, jt12/jt89
-and `sdram.sv` are GPL-3.0, `gen.sv` is BSD-style, and the SH-2 and 32X sources have no
-license header. Decision: this repo is **GPL-3.0** (REQ-LEGAL-01), and S32X_MiSTer is included
+**Licensing (checked 2026-09-28, reviewed 2026-10-02):** S32X_MiSTer has **no top-level
+LICENSE**. fx68k, jt12/jt89 and `sdram.sv` are GPL-3.0-or-later; `gen.sv`/`gen_io.sv`,
+multitap/Team Player and T80 are BSD-style (their notices must accompany the bitstream); the
+audio filters are MIT; `cofi.sv`/`cheatcodes.sv`/`EEPROM_STM95.sv` (Kitrinx) carry no license;
+the BIOS ROM, FIFO and palette wrappers are Altera megafunctions; and the SH-2 and 32X sources
+have no license header (srg320's standalone SH repo has none either). `NOTICE.txt` lists them
+all and ships in the release's core folder. Decision: this repo is **GPL-3.0** (REQ-LEGAL-01), and S32X_MiSTer is included
 as a **git submodule with build-time patches** rather than copied in, so we don't redistribute
 code without a stated license (REQ-LEGAL-02). A distributed bitstream still contains all of it,
 which is something to weigh before any public release (the BIOS, by contrast, is no longer in the

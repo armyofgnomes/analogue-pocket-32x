@@ -12,6 +12,10 @@
 // on clk_ram (2x MCLK, same PLL) and samples its request inputs from the clk_sys domain, exactly
 // as in upstream.
 //
+// The cart quirks, color table and layer mixing below follow upstream S32X.sv by srg320, based on
+// Sorgelig's FPGAGen port (Copyright (c) 2017-2019 Sorgelig, Genesis code Copyright (c) 2010-2013
+// Gregory Estrade). That file is GPL-2.0-or-later; this one is GPL-3.0.
+//
 
 `ifdef MEMTEST
 `define GENESIS_ONLY
