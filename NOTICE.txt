@@ -3,7 +3,7 @@ Sega 32X core for Analogue Pocket: third-party notices
 
 The bitstream (bitstream.rbf_r) is built from this project's own sources (GPL-3.0, see
 LICENSE.txt) together with the third-party code below. Source code:
-https://github.com/armyofgnomes/32x-core (the upstream S32X_MiSTer core is a git submodule,
+https://github.com/armyofgnomes/analogue-pocket-32x (the upstream S32X_MiSTer core is a git submodule,
 modified only by the patch files in src/fpga/core/rtl/patches/).
 
 Licenses that require it ask for their notices to accompany the synthesized form; they are

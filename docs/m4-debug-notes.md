@@ -10,7 +10,7 @@ debugging history: each "Found" section is a solved problem, kept for the method
 The simulation toolkit is described at the end.
 
 No known open game issues: After Burner Complete's PWM weapon sounds (below) are fixed and
-verified on hardware (89c9c20).
+verified on hardware (66bccc4).
 
 ## Found (2026-09-30): After Burner Complete's PWM sounds need the SH-2 UBC registers
 
@@ -35,7 +35,7 @@ Lesson: SH-2 on-chip registers that "only debuggers use" can be scratch RAM for 
 
 Postponed: After Burner Complete lacks its cannon and missile sounds
 
-Reported on 46d8920: music and some effects play, the cannon and missile sounds don't. Not a
+Reported on 66c93b5: music and some effects play, the cannon and missile sounds don't. Not a
 known upstream issue as far as a search shows; our upstream pin (b438679, 2026-06-22) is upstream's
 latest and includes its 2022 PWM fix. Whether it worked on earlier builds is unknown.
 
@@ -55,7 +55,7 @@ DREQ issue that MiSTer shares.
 Next step when resumed: disassemble the DMA setup around the 28 base loads to get the modes
 (TS, AM, DS/DL, source area); then either a `sim/sdram_front`-style bench for that DMA pattern,
 or a full-system run of the attract mode (which fires weapons) with the DMA traced. An A/B test on
-hardware against b28c877 (before patch 0009) would also separate the cart-path suspect.
+hardware against 8069503 (before patch 0009) would also separate the cart-path suspect.
 
 ## Found (2026-09-29): NBA Jam TE hung at start (bars) because cart quirks weren't ported
 
@@ -79,13 +79,13 @@ Cause (confirmed with an SDRAM port trace): the SH-2 bus controller runs area 3 
 (`BSC.sv` states TRAS/TRCAS/TRD/TWCAS). It honors WAIT only on the first beat of a read (TRCAS);
 the other beats of a burst (a 16-byte cache-line fill is 8 beats, starting at the critical word
 and wrapping) follow one per SH-2 cycle. Writes honor WAIT once per beat (TRAS). Our port-0
-adapter (953f26c) served one 16-bit word per sdram.sv request (about 9 clk_ram each), so most
+adapter (8d6cbb2) served one 16-bit word per sdram.sv request (about 9 clk_ram each), so most
 burst beats went by while the port was still busy: in the trace only 3 of the 8 addresses of the
 first line fill were even requested, and the other beats latched stale data. MiSTer's default
 build doesn't hit this because its `ddram.sv` has a 16-byte line cache: a miss holds WAIT until
 the whole line is fetched and the remaining beats are served from the cache.
 
-A first fix (1d1c55a: re-issue when the address changes while CS/RD are held) did not help,
+A first fix (a986ceb: re-issue when the address changes while CS/RD are held) did not help,
 because the beats don't wait; the full-system run showed the identical failure.
 
 Fix: `src/fpga/core/s32x_sdram_front.sv` in front of port 0, doing what `ddram.sv` does: a 16-byte
@@ -98,7 +98,7 @@ match a shadow memory on three seeds. The first version had no backpressure and 
 back-to-back write beats outran the queue; that is why writes now wait on a full queue.
 Full-system check (Kolibri, `FAST_BIOS`): both SH-2s run the game at 127 ms (master 0x06000AEE,
 slave 0x06000516, then code in the cart), and all 335 full-width code reads the slave made from the
-32X SDRAM match the ROM. Pocket build 6486cf4. Performance: the first version fetched a line as 8
+32X SDRAM match the ROM. Pocket build 69fe0ef. Performance: the first version fetched a line as 8
 single-word SDRAM reads (about 72 MCLK per miss). Patch 0008 adds an sdram.sv line read (one row
 activation, 8 back-to-back column reads) and the front end maps a line to 8 columns of one row:
 misses now average about 14 MCLK in `sim/sdram_front` (worst about 82 MCLK, behind a full write
@@ -168,16 +168,16 @@ MiSTer-memory reference also trapped) are void.
 - The slave reads the SH-2-side adapter register 0x20004000 correctly (0x0200: ADEN=1,
   CART_N=0) and takes the cartridge path, not the CD path.
 - The framebuffer path: `sim/vdp` runs upstream's VDP with MiSTer's block RAM framebuffers
-  against ours (`fb_sram.sv` + SRAM model) on random traffic; after the ffc0a40 fixes they match
+  against ours (`fb_sram.sv` + SRAM model) on random traffic; after the 0da7aa7 fixes they match
   exactly for 30 frames in all modes.
 
 ## Hardware-side fixes made this milestone
 
-- ffc0a40: `fb_sram` display reads before draw writes; patch 0006 (fill waits for the VDP FIFO,
+- 0da7aa7: `fb_sram` display reads before draw writes; patch 0006 (fill waits for the VDP FIFO,
   FEN covers a pending fill).
-- 721869c / bc7ce5c: clk_sys to clk_ram requests sampled only on the mid clk_ram edge (fb_sram,
+- 297165b / c7fecaa: clk_sys to clk_ram requests sampled only on the mid clk_ram edge (fb_sram,
   and `sdram.sv` via patch 0007) with matching SDC multicycle hold.
-- 6a7d9cb: SDRAM pin registers in the I/O cells (MiSTer's `sys.tcl` settings). bc7ce5c without
+- f0ad693: SDRAM pin registers in the I/O cells (MiSTer's `sys.tcl` settings). c7fecaa without
   them was black for every game, Genesis included.
 
 ## Simulation toolkit (sim/system)

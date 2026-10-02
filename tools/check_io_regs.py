@@ -4,7 +4,7 @@
 The memory interfaces are timed by design (fixed command-to-capture cycles, SDRAM clock at 180
 degrees, SRAM access lengths proven by the memtest sweeps), which only holds if the pin
 registers are in the I/O cells, so their clock-to-pin delay doesn't depend on placement. A build
-without them (bc7ce5c) blanked every game. The QSF's FAST_*_REGISTER assignments request this;
+without them (c7fecaa) blanked every game. The QSF's FAST_*_REGISTER assignments request this;
 this script, run by tools/build.sh, fails the build if the fitter didn't honor them.
 Usage: check_io_regs.py [path/to/ap_core.fit.rpt]"""
 import re, sys

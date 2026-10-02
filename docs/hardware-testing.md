@@ -72,7 +72,7 @@ firmware version, handheld/docked, results.
 
 Hardware-verified builds are tagged `vX.Y.Z` (annotated, with notes), `core.json` carries the
 same version, and each is a **GitHub release** with the SD-card zip
-(https://github.com/armyofgnomes/32x-core/releases). To go back to one, download its zip and
+(https://github.com/armyofgnomes/analogue-pocket-32x/releases). To go back to one, download its zip and
 unzip it to the SD card root; the zip holds the matching JSON files too (they change between
 versions, e.g. the BIOS slot addresses between v0.4.0 and v0.4.1).
 

@@ -806,7 +806,7 @@ set_instance_assignment -name PHYSICAL_SYNTHESIS_REGISTER_RETIMING OFF -to "core
 set_instance_assignment -name AUTO_SHIFT_REGISTER_RECOGNITION OFF -to "*|synch_3:*"
 # SDRAM pin registers in the I/O cells, as MiSTer's sys.tcl does for the same sdram.sv. Without
 # these the fitter places them freely and the (unconstrained) pin timing changes from build to
-# build: bc7ce5c, which turned retiming off above, blanked every game on hardware.
+# build: c7fecaa, which turned retiming off above, blanked every game on hardware.
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to dram_a[*]
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to dram_ba[*]
 set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to dram_dqm[*]

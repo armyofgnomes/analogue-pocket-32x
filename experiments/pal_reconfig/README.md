@@ -1,6 +1,6 @@
 # PAL MCLK by PLL reconfiguration (REQ-ARCH-06): parked
 
-Tried 2026-09-30 after the reconfigurable core PLL (`src/fpga/core/pll/`, commit 428c967,
+Tried 2026-09-30 after the reconfigurable core PLL (`src/fpga/core/pll/`, commit f4811b3,
 hardware-verified NTSC-only).
 
 **Idea.** PAL (53.203424 MHz) and NTSC (53.693181 MHz) MCLK differ only in the PLL's fractional

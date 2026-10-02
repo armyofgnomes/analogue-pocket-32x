@@ -9,4 +9,4 @@ others), with Gregory Estrade's Genesis core, fx68k (Jorge Cwik), JT12/JT89
 (Jose Tejada), T80 (Daniel Wallner), filters by Soltan_G42 and agg23's
 openFPGA utilities. Licenses: LICENSE.txt and NOTICE.txt.
 Written with Claude Code; tested on real Pockets.
-https://github.com/armyofgnomes/32x-core
+https://github.com/armyofgnomes/analogue-pocket-32x
