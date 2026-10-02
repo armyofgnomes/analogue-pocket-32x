@@ -4,7 +4,9 @@ Put your 32X BIOS files in Assets/32x/common: 32X_G_BIOS.BIN, 32X_M_BIOS.BIN,
 32X_S_BIOS.BIN. Cartridge saves (SRAM/EEPROM) are kept. Settings: region,
 6-button pad, audio filter, FM chip, composite blend and more.
 
-Based on S32X_MiSTer by srg320 and the MiSTer team, with fx68k (Jorge Cwik),
-jt12/jt89 (Jose Tejada), T80 and agg23's openFPGA utilities.
+Based on S32X_MiSTer by srg320 and the MiSTer team (Sorgelig, Kitrinx and
+others), with Gregory Estrade's Genesis core, fx68k (Jorge Cwik), JT12/JT89
+(Jose Tejada), T80 (Daniel Wallner), filters by Soltan_G42 and agg23's
+openFPGA utilities. Licenses: LICENSE.txt and NOTICE.txt.
 Written with Claude Code; tested on real Pockets.
 https://github.com/armyofgnomes/32x-core

@@ -13,6 +13,7 @@ Pocket openFPGA cores are loaded from the SD card root. Replace `<Author>`, `<Co
     bitstream.rbf_r       ← from output/ (bit-reversed build)
     core.json data.json video.json audio.json input.json interact.json variants.json
     info.txt icon.bin
+    LICENSE.txt NOTICE.txt  ← GPL-3.0 and third-party notices (not read by the Pocket)
 /Platforms/<platform>.json
 /Platforms/_images/<platform>.bin
 /Assets/<platform>/common/          ← game ROMs (.32x) go here or any subfolder, and the

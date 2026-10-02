@@ -31,5 +31,7 @@ not the patched tree, or the diff will include the existing patches), edit files
 then run `tools/prepare_upstream.sh` to confirm the full series applies to a clean checkout.
 
 Licensing: S32X_MiSTer has no top-level LICENSE. fx68k, jt12/jt89 and `sdram.sv` are GPLv3,
-`gen.sv` is BSD-style, and the SH-2/32X sources carry no license header. Keeping upstream as a
+`gen.sv`, `gen_io.sv`, the multitap files and T80 are BSD-style, the audio filters are MIT, and
+the SH-2/32X sources carry no license header. `NOTICE.txt` at the repo root lists every
+component that ends up in the bitstream with its license. Keeping upstream as a
 submodule means this repo points at that code rather than redistributing it.

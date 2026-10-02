@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Print a fingerprint (git tree ID) of the sources that go into the bitstream and the SD package:
-# src/, dist/ and the APF JSON/info files, without build outputs (src/fpga/output_files,
-# apf/build_id.mif) and without core.json (its version is bumped after the hardware test).
+# src/, dist/, the APF JSON/info files and the LICENSE/NOTICE.txt shipped with the core, without
+# build outputs (src/fpga/output_files, apf/build_id.mif) and without core.json (its version is
+# bumped after the hardware test).
 # Usage: tools/fingerprint.sh            the working tree, committed or not
 #        tools/fingerprint.sh <tag|rev>  that commit
 set -euo pipefail
 cd "$(dirname "$0")/.."
-paths=(src dist data.json interact.json video.json audio.json input.json variants.json info.txt)
+paths=(src dist data.json interact.json video.json audio.json input.json variants.json info.txt LICENSE NOTICE.txt)
 idx=$(mktemp -u)
 trap 'rm -f "$idx"' EXIT
 export GIT_INDEX_FILE=$idx

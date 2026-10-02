@@ -11,6 +11,10 @@ releases with the SD-card zip. Per-build hardware results are in `docs/test-log.
   pin registers are in their I/O cells; a simulation regression script.
 - Memories studied and found not to fit alongside the 32X (`experiments/memories/`).
 - Sega CD 32X games studied and found not to fit (`experiments/segacd32x/`).
+- Credits and licenses reviewed: the core folder now carries `LICENSE.txt` (GPL-3.0) and
+  `NOTICE.txt` (third-party credits with the BSD and MIT notices their licenses require), and the
+  credits name the Genesis core (Gregory Estrade, Sorgelig), T80, the audio filters (Soltan_G42)
+  and Kitrinx's composite blend.
 
 ## 0.4.2 (2026-09-30)
 

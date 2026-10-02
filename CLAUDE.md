@@ -57,6 +57,7 @@ history and the simulation toolkit. The repo started as `open-fpga/core-template
 core.json, data.json, video.json, audio.json,   APF core definition JSON files
 input.json, interact.json, variants.json         (copied into the SD card's core folder)
 info.txt                                          Text shown in the Pocket's core info screen
+LICENSE, NOTICE.txt                               GPL-3.0 and third-party credits/notices (both shipped in the core folder)
 dist/                                             SD-card staging: icon.bin, platforms/*.json, platform images
 output/bitstream.rbf_r                            Bit-reversed bitstream of the latest local build (not committed)
 src/fpga/ap_core.qpf / ap_core.qsf                Quartus project (Cyclone V 5CEBA4F23C8, top = apf_top)
@@ -98,7 +99,9 @@ src/fpga/core/core_bridge_cmd.v                   Host/target command handler (d
   own subdirectory with its original LICENSE file and a short `README.md` recording the upstream
   URL and commit hash. Keep local modifications minimal and noted.
 - The project license is **GPL-3.0** (`LICENSE`), compatible with fx68k, jt12/jt89 and the GPLv3
-  SDRAM controller that end up in every bitstream.
+  SDRAM controller that end up in every bitstream. `NOTICE.txt` credits every third-party
+  component in the bitstream with its license; when new third-party code goes in, add it there
+  and to README's Credits.
 - **Never commit copyrighted ROMs or BIOS images** to git, including `.mif`/`.hex` BIOS
   embeds that some upstream cores ship with. Pushing them to GitHub counts as distributing them.
 - BIOS policy: the bitstream contains **no BIOS**. The core loads the three BIOS files from the
